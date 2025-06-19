@@ -7,6 +7,8 @@ import org.springframework.data.mongodb.core.index.CompoundIndex;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 
+import com.buyzaar.product.enums.TagType;
+
 @Document(collection = "tags")
 @CompoundIndex(name = "name_category_idx", def = "{'name': 1, 'category': 1}")
 public class Tag {
@@ -20,6 +22,7 @@ public class Tag {
 	private String category;
 	private String description;
 	private Integer popularityScore;
+	private TagType tagType;
 	private LocalDateTime createdAt;
 	private LocalDateTime updatedAt;
 
@@ -27,7 +30,7 @@ public class Tag {
 	}
 
 	public Tag(String id, String tagId, String name, String category, String description, Integer popularityScore,
-			LocalDateTime createdAt, LocalDateTime updatedAt) {
+			TagType tagType, LocalDateTime createdAt, LocalDateTime updatedAt) {
 		super();
 		this.id = id;
 		this.tagId = tagId;
@@ -35,8 +38,17 @@ public class Tag {
 		this.category = category;
 		this.description = description;
 		this.popularityScore = popularityScore;
+		this.tagType = tagType;
 		this.createdAt = createdAt;
 		this.updatedAt = updatedAt;
+	}
+
+	public TagType getTagType() {
+		return tagType;
+	}
+
+	public void setTagType(TagType tagType) {
+		this.tagType = tagType;
 	}
 
 	public String getTagId() {

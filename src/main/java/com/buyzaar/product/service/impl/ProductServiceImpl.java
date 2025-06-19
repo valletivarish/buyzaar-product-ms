@@ -22,7 +22,9 @@ import com.buyzaar.product.constants.AppConstants;
 import com.buyzaar.product.model.entity.Product;
 import com.buyzaar.product.model.entity.Tag;
 import com.buyzaar.product.service.ProductService;
-import com.buyzaar.product.service.utils.SnowflakeIdGenerator;
+import com.buyzaar.product.utils.ProductUtils;
+import com.buyzaar.product.utils.SnowflakeIdGenerator;
+
 
 @Service
 public class ProductServiceImpl implements ProductService {
@@ -40,14 +42,12 @@ public class ProductServiceImpl implements ProductService {
 
 	@Override
 	public List<Tag> getAllTags() {
-        logger.debug("Fetching all tags...");
-		List<Tag> tags = mongoOperations.findAll(Tag.class);
-		return tags;
+		return mongoOperations.findAll(Tag.class);
 	}
 
 	@Override
 	public Tag saveTag(Tag tag) {
-        logger.debug("Saving tag: {}", tag.getName());
+		logger.debug("Saving tag: {}", tag.getName());
 		Criteria criteria = Criteria.where(AppConstants.TAG_NAME).is(tag.getName());
 		Query query = new Query(criteria);
 
@@ -55,7 +55,7 @@ public class ProductServiceImpl implements ProductService {
 		LocalDateTime now = LocalDateTime.now();
 
 		if (Objects.nonNull(queriedTag)) {
-            logger.debug("Updating existing tag: {}", tag.getName());
+			logger.debug("Updating existing tag: {}", tag.getName());
 			Update update = new Update();
 			Optional.ofNullable(tag.getDescription()).ifPresent(desc -> {
 				update.set(AppConstants.TAG_DESCRIPTION, desc);
@@ -75,7 +75,7 @@ public class ProductServiceImpl implements ProductService {
 			return queriedTag;
 
 		} else {
-            logger.debug("Creating new tag: {}", tag.getName());
+			logger.debug("Creating new tag: {}", tag.getName());
 			tag.setCreatedAt(now);
 			tag.setUpdatedAt(now);
 			tag.setTagId(String.valueOf(idGenerator.nextId()));
@@ -85,17 +85,16 @@ public class ProductServiceImpl implements ProductService {
 
 	@Override
 	public void saveProduct(Product product) {
-        logger.debug("Saving product: {}", product.getProductId());
-		Criteria criteria = Criteria.where(AppConstants.PRODUCT_ID).is(product.getProductId());
-		Query query = new Query(criteria);
-		Product queriedProduct = mongoOperations.findOne(query, Product.class);
-		logger.info("Product Queired {} {}", query, queriedProduct);
+		logger.debug("Saving product: {}", product.getProductId());
+		Product queriedProduct = fetchProductById(product.getProductId());
 		LocalDateTime now = LocalDateTime.now();
 		if (Objects.nonNull(queriedProduct)) {
-            logger.debug("Updating existing product: {}", product.getProductId());
+			logger.debug("Updating existing product: {}", product.getProductId());
 			Update update = new Update();
-			Optional.ofNullable(product.getName()).ifPresent(name -> update.set(AppConstants.PRODUCT_NAME, product.getName()));
-			Optional.ofNullable(product.getBrand()).ifPresent(brand -> update.set(AppConstants.PRODUCT_BRAND, product.getBrand()));
+			Optional.ofNullable(product.getName())
+					.ifPresent(name -> update.set(AppConstants.PRODUCT_NAME, product.getName()));
+			Optional.ofNullable(product.getBrand())
+					.ifPresent(brand -> update.set(AppConstants.PRODUCT_BRAND, product.getBrand()));
 			Optional.ofNullable(product.getCategory())
 					.ifPresent(category -> update.set(AppConstants.PRODUCT_CATEGORY, product.getCategory()));
 			Optional.ofNullable(product.getDescription())
@@ -109,9 +108,11 @@ public class ProductServiceImpl implements ProductService {
 				List<String> newMergedTags = mergedTags.stream().collect(Collectors.toList());
 				update.set(AppConstants.TAGIDS, newMergedTags);
 			});
-			mongoOperations.updateFirst(query, update, Product.class);
+			mongoOperations.updateFirst(
+					ProductUtils.createQuery(AppConstants.PRODUCT_ID, queriedProduct.getProductId()), update,
+					Product.class);
 		} else {
-            logger.debug("Creating new product: {}", product.getProductId());
+			logger.debug("Creating new product: {}", product.getProductId());
 			product.setCreatedAt(now);
 			product.setUpdatedAt(now);
 			product.setProductId(String.valueOf(idGenerator.nextId()));
@@ -122,33 +123,44 @@ public class ProductServiceImpl implements ProductService {
 
 	@Override
 	public Product getProduct(String productId) {
-        logger.debug("Fetching product with ID: {}", productId);
-		Criteria criteria = Criteria.where(AppConstants.PRODUCT_ID).is(productId);
-		Query query = new Query(criteria); 
-		Product queriedProduct = mongoOperations.findOne(query, Product.class);
-		if(Objects.isNull(queriedProduct)) {
-            logger.error("Product not found: {}", productId);
-			throw new NoSuchElementException(AppConstants.PRODUCT_DOES_NOT_EXIST+productId);
+		logger.debug("Fetching product with ID: {}", productId);
+		Product queriedProduct = fetchProductById(productId);
+		if (Objects.isNull(queriedProduct)) {
+			logger.error("Product not found: {}", productId);
+			throw new NoSuchElementException(AppConstants.PRODUCT_DOES_NOT_EXIST + productId);
 		}
 		return queriedProduct;
 	}
 
 	@Override
-	public void updateTagsForProductId(String productId,List<String> tagIds) {
-		Criteria criteria = Criteria.where(AppConstants.PRODUCT_ID).is(productId);
-		Query query = new Query(criteria);
-		Product queriedProduct = mongoOperations.findOne(query, Product.class);
-		if(Objects.isNull(queriedProduct)) {
-			throw new NoSuchElementException(AppConstants.PRODUCT_DOES_NOT_EXIST+productId);
+	public void assignTagsForProductId(String productId, List<String> tagIds) {
+		Product queriedProduct = fetchProductById(productId);
+		if (Objects.isNull(queriedProduct)) {
+			throw new NoSuchElementException(AppConstants.PRODUCT_DOES_NOT_EXIST + productId);
 		}
-		List<String> retrievedtagIds = Optional.ofNullable(queriedProduct.getTagIds()).orElseGet(ArrayList::new);
-		Set<String> uniqueTagIds = new LinkedHashSet<>(retrievedtagIds);
-		tagIds.stream().forEach(tagId->uniqueTagIds.add(tagId));
-		List<String> mergedTags = uniqueTagIds.stream().collect(Collectors.toList());
+		Query tagQuery = new Query(Criteria.where(AppConstants.TAG_ID).in(tagIds));
+		List<Tag> tags = mongoOperations.find(tagQuery, Tag.class);
+		LinkedHashSet<String> eligibleTags = tags.stream()
+				.filter(tag -> AppConstants.SELLER_DEFINED_TAGS.contains(tag.getName())).map(Tag::getTagId)
+				.collect(Collectors.toCollection(LinkedHashSet::new));
+		List<String> existingTagIds = Optional.ofNullable(queriedProduct.getTagIds()).orElseGet(ArrayList::new);
+		existingTagIds.addAll(eligibleTags);
 		Update update = new Update();
-		update.set(AppConstants.TAGIDS, mergedTags);
-		mongoOperations.updateFirst(query, update, Product.class);
-		
+		update.set(AppConstants.TAGIDS, new ArrayList<>(existingTagIds));
+		mongoOperations.updateFirst(ProductUtils.createQuery(AppConstants.PRODUCT_ID, productId), update,
+				Product.class);
+	}
+
+	@Override
+	public void deassignTagsForProductId(String productId, List<String> tagIds) {
+		Product queriedProduct = fetchProductById(productId);
+		List<String> tags = Optional.ofNullable(queriedProduct).map(Product::getTagIds).orElseGet(ArrayList::new);
+		tags.removeAll(tagIds);
+	}
+
+	private Product fetchProductById(String productId) {
+		Query query = new Query(Criteria.where(AppConstants.PRODUCT_ID).is(productId));
+		return mongoOperations.findOne(query, Product.class);
 	}
 
 }

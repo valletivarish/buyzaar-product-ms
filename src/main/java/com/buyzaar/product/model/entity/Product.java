@@ -23,7 +23,7 @@ public class Product {
 	private List<Variant> variants;
 	private Pricing pricing;
 	private Inventory inventory;
-	private SellerInfo sellerInfo;
+	private String sellerId;
 	private List<Image> images;
 	private Rating rating;
 	private List<CustomerReview> reviews;
@@ -35,8 +35,9 @@ public class Product {
 
 	public Product(String id, String productId, String name, String brand, String description, String category,
 			List<String> tagIds, List<Specification> specifications, List<Variant> variants, Pricing pricing,
-			Inventory inventory, SellerInfo sellerInfo, List<Image> images, Rating rating, List<CustomerReview> reviews,
+			Inventory inventory, String sellerId, List<Image> images, Rating rating, List<CustomerReview> reviews,
 			LocalDateTime createdAt, LocalDateTime updatedAt) {
+		super();
 		this.id = id;
 		this.productId = productId;
 		this.name = name;
@@ -48,20 +49,12 @@ public class Product {
 		this.variants = variants;
 		this.pricing = pricing;
 		this.inventory = inventory;
-		this.sellerInfo = sellerInfo;
+		this.sellerId = sellerId;
 		this.images = images;
 		this.rating = rating;
 		this.reviews = reviews;
 		this.createdAt = createdAt;
 		this.updatedAt = updatedAt;
-	}
-
-	public String getProductId() {
-		return productId;
-	}
-
-	public void setProductId(String productId) {
-		this.productId = productId;
 	}
 
 	public String getId() {
@@ -70,6 +63,14 @@ public class Product {
 
 	public void setId(String id) {
 		this.id = id;
+	}
+
+	public String getProductId() {
+		return productId;
+	}
+
+	public void setProductId(String productId) {
+		this.productId = productId;
 	}
 
 	public String getName() {
@@ -144,12 +145,12 @@ public class Product {
 		this.inventory = inventory;
 	}
 
-	public SellerInfo getSellerInfo() {
-		return sellerInfo;
+	public String getSellerId() {
+		return sellerId;
 	}
 
-	public void setSellerInfo(SellerInfo sellerInfo) {
-		this.sellerInfo = sellerInfo;
+	public void setSellerId(String sellerId) {
+		this.sellerId = sellerId;
 	}
 
 	public List<Image> getImages() {
@@ -191,30 +192,30 @@ public class Product {
 	public void setUpdatedAt(LocalDateTime updatedAt) {
 		this.updatedAt = updatedAt;
 	}
-	
+
 	@Override
 	public String toString() {
-	    StringBuilder sb = new StringBuilder(getClass().getSimpleName()).append(" [");
+		StringBuilder sb = new StringBuilder(getClass().getSimpleName()).append(" [");
 
-	    var fields = getClass().getDeclaredFields();
-	    for (int i = 0; i < fields.length; i++) {
-	        var field = fields[i];
-	        field.setAccessible(true);
-	        sb.append(field.getName()).append("=");
+		var fields = getClass().getDeclaredFields();
+		for (int i = 0; i < fields.length; i++) {
+			var field = fields[i];
+			field.setAccessible(true);
+			sb.append(field.getName()).append("=");
 
-	        try {
-	            Object value = field.get(this);
-	            sb.append(value != null ? value : "null");
-	        } catch (IllegalAccessException e) {
-	            sb.append("<access denied>");
-	        }
+			try {
+				Object value = field.get(this);
+				sb.append(value != null ? value : "null");
+			} catch (IllegalAccessException e) {
+				sb.append("<access denied>");
+			}
 
-	        if (i < fields.length - 1) {
-	            sb.append(", ");
-	        }
-	    }
-	    sb.append("]");
-	    return sb.toString();
+			if (i < fields.length - 1) {
+				sb.append(", ");
+			}
+		}
+		sb.append("]");
+		return sb.toString();
 	}
 
 }

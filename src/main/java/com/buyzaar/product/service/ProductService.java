@@ -15,6 +15,8 @@ public interface ProductService {
 
 	Product getProduct(String productId);
 
-	void updateTagsForProductId(String productId, List<String> tagsIds);
+	void assignTagsForProductId(String productId, List<String> tagsIds);
+
+	void deassignTagsForProductId(String productId, List<String> tagIds);
 
 }

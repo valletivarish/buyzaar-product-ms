@@ -14,7 +14,7 @@ import com.buyzaar.product.model.dto.InputRequest;
 import com.buyzaar.product.model.dto.TagDTO;
 import com.buyzaar.product.model.entity.Tag;
 import com.buyzaar.product.service.ProductService;
-import com.buyzaar.product.service.utils.DtoConverter;
+import com.buyzaar.product.utils.DtoConverter;
 
 @RestController
 @RequestMapping("/buyzaar/products/tags")
