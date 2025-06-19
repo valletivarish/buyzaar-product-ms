@@ -22,7 +22,7 @@ import com.buyzaar.product.constants.AppConstants;
 import com.buyzaar.product.model.entity.Product;
 import com.buyzaar.product.model.entity.Tag;
 import com.buyzaar.product.service.ProductService;
-import com.buyzaar.product.service.utils.SnowflakeIdGenerator;
+import com.buyzaar.product.utils.SnowflakeIdGenerator;
 
 @Service
 public class ProductServiceImpl implements ProductService {

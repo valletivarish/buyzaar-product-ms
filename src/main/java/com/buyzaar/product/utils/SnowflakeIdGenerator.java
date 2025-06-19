@@ -1,4 +1,4 @@
-package com.buyzaar.product.service.utils;
+package com.buyzaar.product.utils;
 
 import java.util.Random;
 
