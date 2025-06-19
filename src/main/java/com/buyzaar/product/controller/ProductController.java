@@ -36,10 +36,19 @@ public class ProductController {
 		return new ResponseEntity<>(productService.getProduct(productId),HttpStatus.OK);
 	}
 	
-	@PatchMapping("{productId}/tags")
-	public ResponseEntity<String> updateTagsForProductId(@PathVariable String productId,@RequestBody List<String> tagIds){
-		productService.updateTagsForProductId(productId,tagIds);
+	@PatchMapping("{productId}/tags/assign")
+	public ResponseEntity<String> assignTagsForProductId(@PathVariable String productId,@RequestBody List<String> tagIds){
+		productService.assignTagsForProductId(productId,tagIds);
 		return new ResponseEntity<>("Tags updated successfully for the productId :"+productId,HttpStatus.OK);
 		
 	}
+	
+	@PatchMapping("{productId}/tags/deassign")
+	public ResponseEntity<String> deassignTagsForProductId(@PathVariable String productId,@RequestBody List<String> tagIds){
+		productService.deassignTagsForProductId(productId,tagIds);
+		return new ResponseEntity<>("Tags updated successfully for the productId :"+productId,HttpStatus.OK);
+		
+	}
+	
+	
 }
