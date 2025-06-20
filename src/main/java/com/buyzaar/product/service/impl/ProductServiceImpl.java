@@ -178,9 +178,9 @@ public class ProductServiceImpl implements ProductService {
 	public void updatePriceForProductId(String productId, Pricing request) {
 		Product product = fetchProductById(productId);
 		if(Objects.nonNull(product)) {
-			Optional.ofNullable(request.getMrp()).ifPresent(mrp->{
-				product.getPricing().setMrp(mrp);
-			});
+			Optional.ofNullable(request.getMrp()).ifPresent(mrp->
+				product.getPricing().setMrp(mrp)
+			);
 			Optional.ofNullable(request.getSellingPrice()).ifPresent(sellingPrice -> {
 			    List<PricingHistory> history = product.getPricing().getHistory();
 			    if (history != null && !history.isEmpty()) {
