@@ -108,6 +108,12 @@ public class ProductServiceImpl implements ProductService {
 				List<String> newMergedTags = mergedTags.stream().collect(Collectors.toList());
 				update.set(AppConstants.TAGIDS, newMergedTags);
 			});
+			Optional.ofNullable(product.getPricing()).ifPresent(price->{
+				List<PricingHistory> pricingHistory= new ArrayList<>();
+				pricingHistory.add(new PricingHistory(price.getSellingPrice(),LocalDateTime.now(),null));
+				price.setHistory(pricingHistory);
+				update.set(AppConstants.PRODUCT_PRICING, price);
+			});
 			mongoOperations.updateFirst(
 					ProductUtils.createQuery(AppConstants.PRODUCT_ID, queriedProduct.getProductId()), update,
 					Product.class);
@@ -116,6 +122,11 @@ public class ProductServiceImpl implements ProductService {
 			product.setCreatedAt(now);
 			product.setUpdatedAt(now);
 			product.setProductId(String.valueOf(idGenerator.nextId()));
+			Optional.ofNullable(product.getPricing()).ifPresent(price->{
+				List<PricingHistory> pricingHistory= new ArrayList<>();
+				pricingHistory.add(new PricingHistory(price.getSellingPrice(),LocalDateTime.now(),null));
+				price.setHistory(pricingHistory);
+			});
 			mongoOperations.save(product);
 		}
 
