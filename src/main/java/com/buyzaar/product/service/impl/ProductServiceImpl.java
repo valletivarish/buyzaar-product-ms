@@ -202,4 +202,10 @@ public class ProductServiceImpl implements ProductService {
 		}
 	}
 
+	@Override
+	public List<Currency> getAllCurrencies() {
+		Query query = new Query().with(Sort.by(Sort.Direction.ASC, "_id"));
+		return mongoOperations.find(query, Currency.class);
+	}
+
 }
