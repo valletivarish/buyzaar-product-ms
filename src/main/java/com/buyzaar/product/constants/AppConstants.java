@@ -17,6 +17,7 @@ public class AppConstants {
 	public static final String PRODUCT_BRAND = "brand";
 	public static final String PRODUCT_UPDATED_AT = "updatedAt";
 	public static final String PRODUCT_CREATED_AT = "createdAt";
+	public static final String PRODUCT_PRICING = "pricing";
 	
 	public static final String TAG_ID="tagId";
 
