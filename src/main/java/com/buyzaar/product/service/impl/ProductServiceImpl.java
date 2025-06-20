@@ -174,4 +174,32 @@ public class ProductServiceImpl implements ProductService {
 		return mongoOperations.findOne(query, Product.class);
 	}
 
+	@Override
+	public void updatePriceForProductId(String productId, Pricing request) {
+		Product product = fetchProductById(productId);
+		if(Objects.nonNull(product)) {
+			Optional.ofNullable(request.getMrp()).ifPresent(mrp->{
+				product.getPricing().setMrp(mrp);
+			});
+			Optional.ofNullable(request.getSellingPrice()).ifPresent(sellingPrice -> {
+			    List<PricingHistory> history = product.getPricing().getHistory();
+			    if (history != null && !history.isEmpty()) {
+			        PricingHistory last = history.get(history.size() - 1);
+			        last.setToDate(LocalDateTime.now());
+			    } else {
+			        history = new ArrayList<>();
+			        product.getPricing().setHistory(history);
+			    }
+
+			    PricingHistory newHistory = new PricingHistory(sellingPrice, LocalDateTime.now(), null);
+			    history.add(newHistory);
+			    product.getPricing().setSellingPrice(sellingPrice);
+			});
+			Update update = new Update();
+			update.set(AppConstants.PRODUCT_PRICING,product.getPricing());
+			mongoOperations.updateFirst(ProductUtils.createQuery(AppConstants.PRODUCT_ID, productId), update, Product.class);
+			
+		}
+	}
+
 }
