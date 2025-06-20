@@ -49,6 +49,12 @@ public class ProductController {
 		return new ResponseEntity<>("Tags updated successfully for the productId :"+productId,HttpStatus.OK);
 		
 	}
+
+	@PutMapping("{productId}/pricing")
+	public ResponseEntity<String> updatePriceForProductId(@PathVariable String productId,@RequestBody InputRequest<Pricing> inputRequest){
+		productService.updatePriceForProductId(productId,inputRequest.getRequest());
+		return new ResponseEntity<>("Pricing Updated succcesfully",HttpStatus.OK);
+	}
 	
 	
 }
