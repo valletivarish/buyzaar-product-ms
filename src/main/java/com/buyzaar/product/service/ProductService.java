@@ -19,4 +19,7 @@ public interface ProductService {
 
 	void deassignTagsForProductId(String productId, List<String> tagIds);
 
+	void updatePriceForProductId(String productId, Pricing request);
+
+
 }
