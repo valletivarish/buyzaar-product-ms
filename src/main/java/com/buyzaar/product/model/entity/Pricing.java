@@ -6,16 +6,16 @@ import java.util.List;
 public class Pricing {
         private BigDecimal mrp;
         private BigDecimal sellingPrice;
-        private String currency;
+        private String currencyCode;
         private List<PricingHistory> history;
 
         public Pricing() {
         }
 
-        public Pricing(BigDecimal mrp, BigDecimal sellingPrice, String currency, List<PricingHistory> history) {
+        public Pricing(BigDecimal mrp, BigDecimal sellingPrice, String currencyCode, List<PricingHistory> history) {
             this.mrp = mrp;
             this.sellingPrice = sellingPrice;
-            this.currency = currency;
+            this.currencyCode = currencyCode;
             this.history = history;
         }
 
@@ -35,12 +35,12 @@ public class Pricing {
             this.sellingPrice = sellingPrice;
         }
 
-        public String getCurrency() {
-            return currency;
+        public String getCurrencyCode() {
+            return currencyCode;
         }
 
-        public void setCurrency(String currency) {
-            this.currency = currency;
+        public void setCurrencyCode(String currency) {
+            this.currencyCode = currency;
         }
 
         public List<PricingHistory> getHistory() {
