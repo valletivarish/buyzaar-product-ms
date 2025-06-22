@@ -12,6 +12,7 @@ import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.MongoOperations;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
@@ -19,6 +20,9 @@ import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.stereotype.Service;
 
 import com.buyzaar.product.constants.AppConstants;
+import com.buyzaar.product.model.entity.Currency;
+import com.buyzaar.product.model.entity.Pricing;
+import com.buyzaar.product.model.entity.PricingHistory;
 import com.buyzaar.product.model.entity.Product;
 import com.buyzaar.product.model.entity.Tag;
 import com.buyzaar.product.service.ProductService;

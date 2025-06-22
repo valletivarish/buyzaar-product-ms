@@ -2,6 +2,8 @@ package com.buyzaar.product.service;
 
 import java.util.List;
 
+import com.buyzaar.product.model.entity.Currency;
+import com.buyzaar.product.model.entity.Pricing;
 import com.buyzaar.product.model.entity.Product;
 import com.buyzaar.product.model.entity.Tag;
 
