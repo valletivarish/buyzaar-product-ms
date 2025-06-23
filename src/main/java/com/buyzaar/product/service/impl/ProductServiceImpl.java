@@ -213,34 +213,21 @@ public class ProductServiceImpl implements ProductService {
 	}
 
 	@Override
-	public List<Product> getAllProducts(String cursorId, int limit, boolean goingBackward, String name,
-			String category, List<String> tagIds, double minValue, double maxValue) {
-		logger.info("Fetching products with cursorId: {}", cursorId);
-		logger.info("Min value {} and Max value {}",minValue,maxValue);
+	public List<Product> getAllProducts(String cursorId, int limit, boolean goingBackward, String name, String category,
+			List<String> tagIds, double minValue, double maxValue, boolean applyDiscountFilter) {
 		Query query = new Query();
 
-		if (Objects.nonNull(cursorId) && !cursorId.isBlank()) {
-			Criteria cursorCriteria = goingBackward ? Criteria.where(AppConstants.PRODUCT_ID).lt(cursorId)
-					: Criteria.where(AppConstants.PRODUCT_ID).gt(cursorId);
-			query.addCriteria(cursorCriteria);
-		}
+		applyCursorFilter(query, cursorId, goingBackward);
 
-		if (Objects.nonNull(name) && !name.isBlank()) {
-			Criteria nameFilter = Criteria.where(AppConstants.PRODUCT_NAME).regex(name, "i");
-			query.addCriteria(nameFilter);
-		}
-		
-		if(Objects.nonNull(category) && !category.isBlank()) {
-			Criteria categoryCriteria = Criteria.where(AppConstants.PRODUCT_CATEGORY).regex(category,"i");
-			query.addCriteria(categoryCriteria);
-		}
-		
-		if(Objects.nonNull(tagIds) && !tagIds.isEmpty()) {
-			Criteria tagIdsCriteria = Criteria.where(AppConstants.TAGIDS).in(tagIds);
-			query.addCriteria(tagIdsCriteria);
-		}
-		
-		query.addCriteria(Criteria.where("pricing.sellingPrice").gte(minValue).lte(maxValue));
+		applyNameFilter(query, name);
+
+		applyCategoryFilter(query, category);
+
+		applyTagsFilter(query,tagIds);
+
+		applyDiscountFilter(query,applyDiscountFilter);
+
+		applyMinimumAndMaximumFilter(query,minValue,maxValue);
 
 		Sort.Direction sortDirection = goingBackward ? Direction.DESC : Direction.ASC;
 		query.with(Sort.by(sortDirection, AppConstants.PRODUCT_ID));
@@ -253,5 +240,53 @@ public class ProductServiceImpl implements ProductService {
 		}
 
 		return products;
+	}
+
+	private void applyMinimumAndMaximumFilter(Query query, double minValue, double maxValue) {
+	    logger.info("Applying price range filter: minValue={} maxValue={}", minValue, maxValue);
+		query.addCriteria(Criteria.where("pricing.sellingPrice").gte(minValue).lte(maxValue));		
+	}
+
+	private void applyDiscountFilter(Query query, boolean applyDiscountFilter) {
+	    logger.info("Applying discount filter: {}", applyDiscountFilter);
+		if (applyDiscountFilter) {
+			Document exprDoc = new Document("$gt", List.of("$pricing.mrp", "$pricing.sellingPrice"));
+			query.addCriteria(Criteria.where("$expr").is(exprDoc));
+		}		
+	}
+
+	private void applyTagsFilter(Query query, List<String> tagIds) {
+	    logger.info("Applying tagIds filter with tagIds={}", tagIds);
+		if (Objects.nonNull(tagIds) && !tagIds.isEmpty()) {
+			Criteria tagIdsCriteria = Criteria.where(AppConstants.TAGIDS).in(tagIds);
+			query.addCriteria(tagIdsCriteria);
+		}		
+	}
+
+	private void applyCategoryFilter(Query query, String category) {
+	    logger.info("Applying category filter with category={}", category);
+		if (Objects.nonNull(category) && !category.isBlank()) {
+			Criteria categoryCriteria = Criteria.where(AppConstants.PRODUCT_CATEGORY).regex(category, "i");
+			query.addCriteria(categoryCriteria);
+		}
+
+	}
+
+	private void applyNameFilter(Query query, String name) {
+	    logger.info("Applying name filter with name={}", name);
+		if (Objects.nonNull(name) && !name.isBlank()) {
+			Criteria nameFilter = Criteria.where(AppConstants.PRODUCT_NAME).regex(name, "i");
+			query.addCriteria(nameFilter);
+		}
+
+	}
+
+	private void applyCursorFilter(Query query, String cursorId, boolean goingBackward) {
+	    logger.info("Applying cursor filter with cursorId={} and goingBackward={}", cursorId, goingBackward);
+		if (Objects.nonNull(cursorId) && !cursorId.isBlank()) {
+			Criteria cursorCriteria = goingBackward ? Criteria.where(AppConstants.PRODUCT_ID).lt(cursorId)
+					: Criteria.where(AppConstants.PRODUCT_ID).gt(cursorId);
+			query.addCriteria(cursorCriteria);
+		}
 	}
 }
