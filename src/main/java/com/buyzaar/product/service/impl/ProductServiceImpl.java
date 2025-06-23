@@ -214,7 +214,7 @@ public class ProductServiceImpl implements ProductService {
 
 	@Override
 	public List<Product> getAllProducts(String cursorId, int limit, boolean goingBackward, String name,
-			String category) {
+			String category, List<String> tagIds) {
 		logger.info("Fetching products with cursorId: {}", cursorId);
 
 		Query query = new Query();
@@ -233,6 +233,11 @@ public class ProductServiceImpl implements ProductService {
 		if(Objects.nonNull(category) && !category.isBlank()) {
 			Criteria categoryCriteria = Criteria.where(AppConstants.PRODUCT_CATEGORY).regex(category,"i");
 			query.addCriteria(categoryCriteria);
+		}
+		
+		if(Objects.nonNull(tagIds) && !tagIds.isEmpty()) {
+			Criteria tagIdsCriteria = Criteria.where(AppConstants.TAGIDS).in(tagIds);
+			query.addCriteria(tagIdsCriteria);
 		}
 
 		Sort.Direction sortDirection = goingBackward ? Direction.DESC : Direction.ASC;
