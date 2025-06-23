@@ -213,23 +213,34 @@ public class ProductServiceImpl implements ProductService {
 	}
 
 	@Override
-	public List<Product> getAllProducts(String cursorId, int limit, boolean goingBackward) {
-		logger.info("CursorId {}", cursorId);
-		Query query = new Query();
-		if (Objects.nonNull(cursorId) && !cursorId.isBlank()) {
-			Criteria productIdCriteria = goingBackward ? Criteria.where(AppConstants.PRODUCT_ID).lt(cursorId)
-					: Criteria.where(AppConstants.PRODUCT_ID).gt(cursorId);
-			query.addCriteria(productIdCriteria);
-		}
-		if (goingBackward) {
-			query.with(Sort.by(Direction.DESC, AppConstants.PRODUCT_ID));
-		}
-		query.limit(limit);
-		List<Product> productList = mongoOperations.find(query, Product.class);
-		if (goingBackward) {
-			Collections.reverse(productList);
-		}
-		return productList;
+	public List<Product> getAllProducts(String cursorId, int limit, boolean goingBackward, String name) {
+	    logger.info("Fetching products with cursorId: {}", cursorId);
+
+	    Query query = new Query();
+
+	    if (Objects.nonNull(cursorId) && !cursorId.isBlank()) {
+	        Criteria cursorCriteria = goingBackward
+	            ? Criteria.where(AppConstants.PRODUCT_ID).lt(cursorId)
+	            : Criteria.where(AppConstants.PRODUCT_ID).gt(cursorId);
+	        query.addCriteria(cursorCriteria);
+	    }
+
+	    if (Objects.nonNull(name) && !name.isBlank()) {
+	        Criteria nameFilter = Criteria.where(AppConstants.PRODUCT_NAME).regex(name, "i");
+	        query.addCriteria(nameFilter);
+	    }
+
+	    Sort.Direction sortDirection = goingBackward ? Direction.DESC : Direction.ASC;
+	    query.with(Sort.by(sortDirection, AppConstants.PRODUCT_ID));
+	    query.limit(limit);
+
+	    List<Product> products = mongoOperations.find(query, Product.class);
+
+	    if (goingBackward) {
+	        Collections.reverse(products); 
+	    }
+
+	    return products;
 	}
 
 }
