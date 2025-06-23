@@ -58,6 +58,13 @@ public class ProductController {
 		productService.updatePriceForProductId(productId,inputRequest.getRequest());
 		return new ResponseEntity<>("Pricing Updated succcesfully",HttpStatus.OK);
 	}
+
+	@GetMapping
+	public ResponseEntity<List<Product>> getAllProducts(@RequestParam(required = false) String cursorId, @RequestParam(defaultValue = "10") int limit,
+			@RequestParam(required = false) Boolean isPrevious) {
+		boolean goingBackward = Boolean.TRUE.equals(isPrevious);
+		return new ResponseEntity<>(productService.getAllProducts(cursorId,limit,goingBackward),HttpStatus.OK);
+	}
 	
 	
 }
