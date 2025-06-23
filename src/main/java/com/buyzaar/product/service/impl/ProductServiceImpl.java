@@ -214,9 +214,9 @@ public class ProductServiceImpl implements ProductService {
 
 	@Override
 	public List<Product> getAllProducts(String cursorId, int limit, boolean goingBackward, String name,
-			String category, List<String> tagIds) {
+			String category, List<String> tagIds, double minValue, double maxValue) {
 		logger.info("Fetching products with cursorId: {}", cursorId);
-
+		logger.info("Min value {} and Max value {}",minValue,maxValue);
 		Query query = new Query();
 
 		if (Objects.nonNull(cursorId) && !cursorId.isBlank()) {
@@ -239,6 +239,8 @@ public class ProductServiceImpl implements ProductService {
 			Criteria tagIdsCriteria = Criteria.where(AppConstants.TAGIDS).in(tagIds);
 			query.addCriteria(tagIdsCriteria);
 		}
+		
+		query.addCriteria(Criteria.where("pricing.sellingPrice").gte(minValue).lte(maxValue));
 
 		Sort.Direction sortDirection = goingBackward ? Direction.DESC : Direction.ASC;
 		query.with(Sort.by(sortDirection, AppConstants.PRODUCT_ID));
@@ -252,5 +254,4 @@ public class ProductServiceImpl implements ProductService {
 
 		return products;
 	}
-
 }
