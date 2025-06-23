@@ -65,12 +65,14 @@ public class ProductController {
 			@RequestParam(required = false) String name, @RequestParam(required = false) String category,
 			@RequestParam(required = false) List<String> tagIds,
 			@RequestParam(required = false, defaultValue = "") String minValue,
-			@RequestParam(required = false, defaultValue = "") String maxValue) {
+			@RequestParam(required = false, defaultValue = "") String maxValue,
+			@RequestParam(required = false) Boolean hasDiscount) {
 		boolean goingBackward = Boolean.TRUE.equals(isPrevious);
+		boolean applyDiscountFilter = Boolean.TRUE.equals(hasDiscount);
 		double min = minValue.isBlank() ? 0.0 : Double.parseDouble(minValue);
 		double max = maxValue.isBlank() ? Double.MAX_VALUE : Double.parseDouble(maxValue);
 		return new ResponseEntity<>(productService.getAllProducts(cursorId, limit, goingBackward, name, category,
-				tagIds, min, max), HttpStatus.OK);
+				tagIds, min, max, applyDiscountFilter), HttpStatus.OK);
 	}
 	
 	
