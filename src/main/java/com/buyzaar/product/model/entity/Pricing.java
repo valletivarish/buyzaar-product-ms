@@ -1,37 +1,36 @@
 package com.buyzaar.product.model.entity;
 
-import java.math.BigDecimal;
 import java.util.List;
 
 public class Pricing {
-        private BigDecimal mrp;
-        private BigDecimal sellingPrice;
+        private Double mrp;
+        private Double sellingPrice;
         private String currencyCode;
         private List<PricingHistory> history;
 
         public Pricing() {
         }
 
-        public Pricing(BigDecimal mrp, BigDecimal sellingPrice, String currencyCode, List<PricingHistory> history) {
+        public Pricing(Double mrp, Double sellingPrice, String currencyCode, List<PricingHistory> history) {
             this.mrp = mrp;
             this.sellingPrice = sellingPrice;
             this.currencyCode = currencyCode;
             this.history = history;
         }
 
-        public BigDecimal getMrp() {
+        public Double getMrp() {
             return mrp;
         }
 
-        public void setMrp(BigDecimal mrp) {
+        public void setMrp(Double mrp) {
             this.mrp = mrp;
         }
 
-        public BigDecimal getSellingPrice() {
+        public Double getSellingPrice() {
             return sellingPrice;
         }
 
-        public void setSellingPrice(BigDecimal sellingPrice) {
+        public void setSellingPrice(Double sellingPrice) {
             this.sellingPrice = sellingPrice;
         }
 
@@ -50,4 +49,29 @@ public class Pricing {
         public void setHistory(List<PricingHistory> history) {
             this.history = history;
         }
+        
+        @Override
+    	public String toString() {
+    		StringBuilder sb = new StringBuilder(getClass().getSimpleName()).append(" [");
+
+    		var fields = getClass().getDeclaredFields();
+    		for (int i = 0; i < fields.length; i++) {
+    			var field = fields[i];
+    			field.setAccessible(true);
+    			sb.append(field.getName()).append("=");
+
+    			try {
+    				Object value = field.get(this);
+    				sb.append(value != null ? value : "null");
+    			} catch (IllegalAccessException e) {
+    				sb.append("<access denied>");
+    			}
+
+    			if (i < fields.length - 1) {
+    				sb.append(", ");
+    			}
+    		}
+    		sb.append("]");
+    		return sb.toString();
+    	}
     }
