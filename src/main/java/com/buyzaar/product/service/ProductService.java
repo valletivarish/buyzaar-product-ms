@@ -25,7 +25,7 @@ public interface ProductService {
 	
 	List<Currency> getAllCurrencies();
 
-	List<Product> getAllProducts(String cursorId, int limit, boolean goingBackward, String name, String category);
+	List<Product> getAllProducts(String cursorId, int limit, boolean goingBackward, String name, String category, List<String> tagIds);
 
 
 
