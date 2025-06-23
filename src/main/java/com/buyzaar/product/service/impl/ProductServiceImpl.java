@@ -212,4 +212,24 @@ public class ProductServiceImpl implements ProductService {
 		return mongoOperations.find(query, Currency.class);
 	}
 
+	@Override
+	public List<Product> getAllProducts(String cursorId, int limit, boolean goingBackward) {
+		logger.info("CursorId {}", cursorId);
+		Query query = new Query();
+		if (Objects.nonNull(cursorId) && !cursorId.isBlank()) {
+			Criteria productIdCriteria = goingBackward ? Criteria.where(AppConstants.PRODUCT_ID).lt(cursorId)
+					: Criteria.where(AppConstants.PRODUCT_ID).gt(cursorId);
+			query.addCriteria(productIdCriteria);
+		}
+		if (goingBackward) {
+			query.with(Sort.by(Direction.DESC, AppConstants.PRODUCT_ID));
+		}
+		query.limit(limit);
+		List<Product> productList = mongoOperations.find(query, Product.class);
+		if (goingBackward) {
+			Collections.reverse(productList);
+		}
+		return productList;
+	}
+
 }
