@@ -61,9 +61,9 @@ public class ProductController {
 
 	@GetMapping
 	public ResponseEntity<List<Product>> getAllProducts(@RequestParam(required = false) String cursorId, @RequestParam(defaultValue = "10") int limit,
-			@RequestParam(required = false) Boolean isPrevious) {
+			@RequestParam(required = false) Boolean isPrevious , @RequestParam(required = false) String name) {
 		boolean goingBackward = Boolean.TRUE.equals(isPrevious);
-		return new ResponseEntity<>(productService.getAllProducts(cursorId,limit,goingBackward),HttpStatus.OK);
+		return new ResponseEntity<>(productService.getAllProducts(cursorId,limit,goingBackward,name),HttpStatus.OK);
 	}
 	
 	
