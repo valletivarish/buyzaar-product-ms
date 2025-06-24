@@ -8,10 +8,13 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.buyzaar.product.model.dto.InputRequest;
+import com.buyzaar.product.model.entity.Pricing;
 import com.buyzaar.product.model.entity.Product;
 import com.buyzaar.product.service.ProductService;
 
@@ -48,6 +51,28 @@ public class ProductController {
 		productService.deassignTagsForProductId(productId,tagIds);
 		return new ResponseEntity<>("Tags updated successfully for the productId :"+productId,HttpStatus.OK);
 		
+	}
+
+	@PutMapping("{productId}/pricing")
+	public ResponseEntity<String> updatePriceForProductId(@PathVariable String productId,@RequestBody InputRequest<Pricing> inputRequest){
+		productService.updatePriceForProductId(productId,inputRequest.getRequest());
+		return new ResponseEntity<>("Pricing Updated succcesfully",HttpStatus.OK);
+	}
+
+	@GetMapping
+	public ResponseEntity<List<Product>> getAllProducts(@RequestParam(required = false) String cursorId,
+			@RequestParam(defaultValue = "10") int limit, @RequestParam(required = false) Boolean isPrevious,
+			@RequestParam(required = false) String name, @RequestParam(required = false) String category,
+			@RequestParam(required = false) List<String> tagIds,
+			@RequestParam(required = false, defaultValue = "") String minValue,
+			@RequestParam(required = false, defaultValue = "") String maxValue,
+			@RequestParam(required = false) Boolean hasDiscount) {
+		boolean goingBackward = Boolean.TRUE.equals(isPrevious);
+		boolean applyDiscountFilter = Boolean.TRUE.equals(hasDiscount);
+		double min = minValue.isBlank() ? 0.0 : Double.parseDouble(minValue);
+		double max = maxValue.isBlank() ? Double.MAX_VALUE : Double.parseDouble(maxValue);
+		return new ResponseEntity<>(productService.getAllProducts(cursorId, limit, goingBackward, name, category,
+				tagIds, min, max, applyDiscountFilter), HttpStatus.OK);
 	}
 	
 	

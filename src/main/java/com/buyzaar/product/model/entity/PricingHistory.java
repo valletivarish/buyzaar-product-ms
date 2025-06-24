@@ -1,27 +1,26 @@
 package com.buyzaar.product.model.entity;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 public class PricingHistory {
-        private BigDecimal price;
+        private Double price;
         private LocalDateTime fromDate;
         private LocalDateTime toDate;
 
         public PricingHistory() {
         }
 
-        public PricingHistory(BigDecimal price, LocalDateTime fromDate, LocalDateTime toDate) {
+        public PricingHistory(Double price, LocalDateTime fromDate, LocalDateTime toDate) {
             this.price = price;
             this.fromDate = fromDate;
             this.toDate = toDate;
         }
 
-        public BigDecimal getPrice() {
+        public Double getPrice() {
             return price;
         }
 
-        public void setPrice(BigDecimal price) {
+        public void setPrice(Double price) {
             this.price = price;
         }
 

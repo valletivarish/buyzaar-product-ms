@@ -12,6 +12,7 @@ import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.MongoOperations;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
@@ -19,6 +20,9 @@ import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.stereotype.Service;
 
 import com.buyzaar.product.constants.AppConstants;
+import com.buyzaar.product.model.entity.Currency;
+import com.buyzaar.product.model.entity.Pricing;
+import com.buyzaar.product.model.entity.PricingHistory;
 import com.buyzaar.product.model.entity.Product;
 import com.buyzaar.product.model.entity.Tag;
 import com.buyzaar.product.service.ProductService;
@@ -108,6 +112,12 @@ public class ProductServiceImpl implements ProductService {
 				List<String> newMergedTags = mergedTags.stream().collect(Collectors.toList());
 				update.set(AppConstants.TAGIDS, newMergedTags);
 			});
+			Optional.ofNullable(product.getPricing()).ifPresent(price->{
+				List<PricingHistory> pricingHistory= new ArrayList<>();
+				pricingHistory.add(new PricingHistory(price.getSellingPrice(),LocalDateTime.now(),null));
+				price.setHistory(pricingHistory);
+				update.set(AppConstants.PRODUCT_PRICING, price);
+			});
 			mongoOperations.updateFirst(
 					ProductUtils.createQuery(AppConstants.PRODUCT_ID, queriedProduct.getProductId()), update,
 					Product.class);
@@ -116,6 +126,11 @@ public class ProductServiceImpl implements ProductService {
 			product.setCreatedAt(now);
 			product.setUpdatedAt(now);
 			product.setProductId(String.valueOf(idGenerator.nextId()));
+			Optional.ofNullable(product.getPricing()).ifPresent(price->{
+				List<PricingHistory> pricingHistory= new ArrayList<>();
+				pricingHistory.add(new PricingHistory(price.getSellingPrice(),LocalDateTime.now(),null));
+				price.setHistory(pricingHistory);
+			});
 			mongoOperations.save(product);
 		}
 
@@ -163,4 +178,115 @@ public class ProductServiceImpl implements ProductService {
 		return mongoOperations.findOne(query, Product.class);
 	}
 
+	@Override
+	public void updatePriceForProductId(String productId, Pricing request) {
+		Product product = fetchProductById(productId);
+		if(Objects.nonNull(product)) {
+			Optional.ofNullable(request.getMrp()).ifPresent(mrp->
+				product.getPricing().setMrp(mrp)
+			);
+			Optional.ofNullable(request.getSellingPrice()).ifPresent(sellingPrice -> {
+			    List<PricingHistory> history = product.getPricing().getHistory();
+			    if (history != null && !history.isEmpty()) {
+			        PricingHistory last = history.get(history.size() - 1);
+			        last.setToDate(LocalDateTime.now());
+			    } else {
+			        history = new ArrayList<>();
+			        product.getPricing().setHistory(history);
+			    }
+
+			    PricingHistory newHistory = new PricingHistory(sellingPrice, LocalDateTime.now(), null);
+			    history.add(newHistory);
+			    product.getPricing().setSellingPrice(sellingPrice);
+			});
+			Update update = new Update();
+			update.set(AppConstants.PRODUCT_PRICING,product.getPricing());
+			mongoOperations.updateFirst(ProductUtils.createQuery(AppConstants.PRODUCT_ID, productId), update, Product.class);
+			
+		}
+	}
+
+	@Override
+	public List<Currency> getAllCurrencies() {
+		Query query = new Query().with(Sort.by(Sort.Direction.ASC, "_id"));
+		return mongoOperations.find(query, Currency.class);
+	}
+
+	@Override
+	public List<Product> getAllProducts(String cursorId, int limit, boolean goingBackward, String name, String category,
+			List<String> tagIds, double minValue, double maxValue, boolean applyDiscountFilter) {
+		Query query = new Query();
+
+		applyCursorFilter(query, cursorId, goingBackward);
+
+		applyNameFilter(query, name);
+
+		applyCategoryFilter(query, category);
+
+		applyTagsFilter(query,tagIds);
+
+		applyDiscountFilter(query,applyDiscountFilter);
+
+		applyMinimumAndMaximumFilter(query,minValue,maxValue);
+
+		Sort.Direction sortDirection = goingBackward ? Direction.DESC : Direction.ASC;
+		query.with(Sort.by(sortDirection, AppConstants.PRODUCT_ID));
+		query.limit(limit);
+
+		List<Product> products = mongoOperations.find(query, Product.class);
+
+		if (goingBackward) {
+			Collections.reverse(products);
+		}
+
+		return products;
+	}
+
+	private void applyMinimumAndMaximumFilter(Query query, double minValue, double maxValue) {
+	    logger.info("Applying price range filter: minValue={} maxValue={}", minValue, maxValue);
+		query.addCriteria(Criteria.where("pricing.sellingPrice").gte(minValue).lte(maxValue));		
+	}
+
+	private void applyDiscountFilter(Query query, boolean applyDiscountFilter) {
+	    logger.info("Applying discount filter: {}", applyDiscountFilter);
+		if (applyDiscountFilter) {
+			Document exprDoc = new Document("$gt", List.of("$pricing.mrp", "$pricing.sellingPrice"));
+			query.addCriteria(Criteria.where("$expr").is(exprDoc));
+		}		
+	}
+
+	private void applyTagsFilter(Query query, List<String> tagIds) {
+	    logger.info("Applying tagIds filter with tagIds={}", tagIds);
+		if (Objects.nonNull(tagIds) && !tagIds.isEmpty()) {
+			Criteria tagIdsCriteria = Criteria.where(AppConstants.TAGIDS).in(tagIds);
+			query.addCriteria(tagIdsCriteria);
+		}		
+	}
+
+	private void applyCategoryFilter(Query query, String category) {
+	    logger.info("Applying category filter with category={}", category);
+		if (Objects.nonNull(category) && !category.isBlank()) {
+			Criteria categoryCriteria = Criteria.where(AppConstants.PRODUCT_CATEGORY).regex(category, "i");
+			query.addCriteria(categoryCriteria);
+		}
+
+	}
+
+	private void applyNameFilter(Query query, String name) {
+	    logger.info("Applying name filter with name={}", name);
+		if (Objects.nonNull(name) && !name.isBlank()) {
+			Criteria nameFilter = Criteria.where(AppConstants.PRODUCT_NAME).regex(name, "i");
+			query.addCriteria(nameFilter);
+		}
+
+	}
+
+	private void applyCursorFilter(Query query, String cursorId, boolean goingBackward) {
+	    logger.info("Applying cursor filter with cursorId={} and goingBackward={}", cursorId, goingBackward);
+		if (Objects.nonNull(cursorId) && !cursorId.isBlank()) {
+			Criteria cursorCriteria = goingBackward ? Criteria.where(AppConstants.PRODUCT_ID).lt(cursorId)
+					: Criteria.where(AppConstants.PRODUCT_ID).gt(cursorId);
+			query.addCriteria(cursorCriteria);
+		}
+	}
 }

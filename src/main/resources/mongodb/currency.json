@@ -1,0 +1,126 @@
+[{
+  "_id": "AED",
+  "symbol": "AED",
+  "displayName": "United Arab Emirates Dirham",
+  "_class": "com.buyzaar.product.model.entity.Currency"
+},
+{
+  "_id": "AUD",
+  "symbol": "A$",
+  "displayName": "Australian Dollar",
+  "_class": "com.buyzaar.product.model.entity.Currency"
+},
+{
+  "_id": "CAD",
+  "symbol": "CA$",
+  "displayName": "Canadian Dollar",
+  "_class": "com.buyzaar.product.model.entity.Currency"
+},
+{
+  "_id": "CHF",
+  "symbol": "CHF",
+  "displayName": "Swiss Franc",
+  "_class": "com.buyzaar.product.model.entity.Currency"
+},
+{
+  "_id": "CNY",
+  "symbol": "CN¥",
+  "displayName": "Chinese Yuan",
+  "_class": "com.buyzaar.product.model.entity.Currency"
+},
+{
+  "_id": "DKK",
+  "symbol": "DKK",
+  "displayName": "Danish Krone",
+  "_class": "com.buyzaar.product.model.entity.Currency"
+},
+{
+  "_id": "EUR",
+  "symbol": "€",
+  "displayName": "Euro",
+  "_class": "com.buyzaar.product.model.entity.Currency"
+},
+{
+  "_id": "GBP",
+  "symbol": "£",
+  "displayName": "British Pound Sterling",
+  "_class": "com.buyzaar.product.model.entity.Currency"
+},
+{
+  "_id": "HKD",
+  "symbol": "HK$",
+  "displayName": "Hong Kong Dollar",
+  "_class": "com.buyzaar.product.model.entity.Currency"
+},
+{
+  "_id": "INR",
+  "symbol": "₹",
+  "displayName": "Indian Rupee",
+  "_class": "com.buyzaar.product.model.entity.Currency"
+},
+{
+  "_id": "JPY",
+  "symbol": "¥",
+  "displayName": "Japanese Yen",
+  "_class": "com.buyzaar.product.model.entity.Currency"
+},
+{
+  "_id": "KRW",
+  "symbol": "₩",
+  "displayName": "South Korean Won",
+  "_class": "com.buyzaar.product.model.entity.Currency"
+},
+{
+  "_id": "MYR",
+  "symbol": "RM",
+  "displayName": "Malaysian Ringgit",
+  "_class": "com.buyzaar.product.model.entity.Currency"
+},
+{
+  "_id": "NOK",
+  "symbol": "NOK",
+  "displayName": "Norwegian Krone",
+  "_class": "com.buyzaar.product.model.entity.Currency"
+},
+{
+  "_id": "NZD",
+  "symbol": "NZ$",
+  "displayName": "New Zealand Dollar",
+  "_class": "com.buyzaar.product.model.entity.Currency"
+},
+{
+  "_id": "SEK",
+  "symbol": "SEK",
+  "displayName": "Swedish Krona",
+  "_class": "com.buyzaar.product.model.entity.Currency"
+},
+{
+  "_id": "SGD",
+  "symbol": "SGD",
+  "displayName": "Singapore Dollar",
+  "_class": "com.buyzaar.product.model.entity.Currency"
+},
+{
+  "_id": "THB",
+  "symbol": "฿",
+  "displayName": "Thai Baht",
+  "_class": "com.buyzaar.product.model.entity.Currency"
+},
+{
+  "_id": "USD",
+  "symbol": "$",
+  "displayName": "US Dollar",
+  "_class": "com.buyzaar.product.model.entity.Currency"
+},
+{
+  "_id": "ZAR",
+  "symbol": "ZAR",
+  "displayName": "South African Rand",
+  "_class": "com.buyzaar.product.model.entity.Currency"
+},
+{
+  "_id": "ZWL",
+  "symbol": "ZWL",
+  "displayName": "Zimbabwe Dollar",
+  "_class": "com.buyzaar.product.model.entity.Currency"
+}]
