@@ -18,8 +18,10 @@ public class AppConstants {
 	public static final String PRODUCT_UPDATED_AT = "updatedAt";
 	public static final String PRODUCT_CREATED_AT = "createdAt";
 	public static final String PRODUCT_PRICING = "pricing";
-	
-	public static final String TAG_ID="tagId";
+	public static final String PRODUCT_SELLING_PRICE = "pricing.sellingPrice";
+	public static final String PRODUCT_AVERAGE_RATING = "averageRating";
+
+	public static final String TAG_ID = "tagId";
 
 	public static final Set<String> SELLER_DEFINED_TAGS = Set.of("new-arrival", "eco-friendly", "handmade",
 			"lightweight", "durable", "refillable", "summer-collection", "winter-wear", "formalwear", "oversized-fit",
