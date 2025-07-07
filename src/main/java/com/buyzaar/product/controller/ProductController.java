@@ -112,4 +112,9 @@ public class ProductController {
 		return new ResponseEntity<>(productService.saveVariant(productId,variant),HttpStatus.OK);
 	}
 
+	@PutMapping("{productId}/variants/{variantId}/pricing")
+	public ResponseEntity<String> updatePriceForVariant(@PathVariable String productId,@PathVariable String variantId, @RequestBody InputRequest<Pricing> pricing){
+		return new ResponseEntity<>(productService.updatePriceForVariant(productId,variantId,pricing.getRequest()),HttpStatus.OK);
+	}
+
 }
