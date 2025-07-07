@@ -213,24 +213,29 @@ public class ProductServiceImpl implements ProductService {
 	}
 
 	@Override
-	public List<Product> getAllProducts(String cursorId, int limit, boolean goingBackward, String name, String category,
-			List<String> tagIds, double minValue, double maxValue, boolean applyDiscountFilter) {
+	public List<Product> getAllProducts(String cursorId, int limit, boolean goingBackward, String searchQuery,
+			String category, List<String> tagIds, double minValue, double maxValue, boolean applyDiscountFilter,
+			boolean applyInStockFilter, double averagerating, String sortBy) {
 		Query query = new Query();
 
 		applyCursorFilter(query, cursorId, goingBackward);
 
-		applyNameFilter(query, name);
+		applySearchQueryFilter(query, searchQuery);
 
 		applyCategoryFilter(query, category);
 
-		applyTagsFilter(query,tagIds);
+		applyTagsFilter(query, tagIds);
 
-		applyDiscountFilter(query,applyDiscountFilter);
+		applyDiscountFilter(query, applyDiscountFilter);
 
-		applyMinimumAndMaximumFilter(query,minValue,maxValue);
+		applyMinimumAndMaximumFilter(query, minValue, maxValue);
 
-		Sort.Direction sortDirection = goingBackward ? Direction.DESC : Direction.ASC;
-		query.with(Sort.by(sortDirection, AppConstants.PRODUCT_ID));
+		applyInStockFilter(query, applyInStockFilter);
+
+		applyMinimumRatingFilter(query, averagerating);
+		Sort sortByClause = getSortByClause(sortBy, goingBackward);
+		query.with(sortByClause);
+
 		query.limit(limit);
 
 		List<Product> products = mongoOperations.find(query, Product.class);
@@ -242,29 +247,96 @@ public class ProductServiceImpl implements ProductService {
 		return products;
 	}
 
+	private Sort getSortByClause(String sortBy, boolean goingBackward) {
+		Sort.Direction direction = goingBackward ? Sort.Direction.DESC : Sort.Direction.ASC;
+
+		if (Objects.isNull(sortBy) || sortBy.isBlank()) {
+			return Sort.by(direction, AppConstants.PRODUCT_ID);
+		}
+
+		switch (sortBy.trim().toLowerCase()) {
+		case "price_low_to_high":
+			return Sort.by(Sort.Direction.ASC, AppConstants.PRODUCT_SELLING_PRICE)
+					.and(Sort.by(direction, AppConstants.PRODUCT_ID));
+
+		case "price_high_to_low":
+			return Sort.by(Sort.Direction.DESC, AppConstants.PRODUCT_SELLING_PRICE)
+					.and(Sort.by(direction, AppConstants.PRODUCT_ID));
+
+		case "rating_high_to_low":
+			return Sort.by(Sort.Direction.DESC, AppConstants.PRODUCT_AVERAGE_RATING)
+					.and(Sort.by(direction, AppConstants.PRODUCT_ID));
+
+		case "rating_low_to_high":
+			return Sort.by(Sort.Direction.ASC, AppConstants.PRODUCT_AVERAGE_RATING)
+					.and(Sort.by(direction, AppConstants.PRODUCT_ID));
+
+		case "newest":
+			return Sort.by(Sort.Direction.DESC, AppConstants.PRODUCT_CREATED_AT)
+					.and(Sort.by(direction, AppConstants.PRODUCT_ID));
+
+		case "oldest":
+			return Sort.by(Sort.Direction.ASC, AppConstants.PRODUCT_CREATED_AT)
+					.and(Sort.by(direction, AppConstants.PRODUCT_ID));
+
+		case "discount":
+			return Sort.by(Sort.Direction.DESC, "pricing.discountPercentage")
+					.and(Sort.by(direction, AppConstants.PRODUCT_ID));
+
+		case "popularity":
+			return Sort.by(Sort.Direction.DESC, "ratingCount").and(Sort.by(Sort.Direction.DESC, "averageRating"))
+					.and(Sort.by(direction, AppConstants.PRODUCT_ID));
+
+		case "alphabetical_asc":
+			return Sort.by(Sort.Direction.ASC, "name").and(Sort.by(direction, AppConstants.PRODUCT_ID));
+
+		case "alphabetical_desc":
+			return Sort.by(Sort.Direction.DESC, "name").and(Sort.by(direction, AppConstants.PRODUCT_ID));
+
+		default:
+			return Sort.by(direction, AppConstants.PRODUCT_ID);
+		}
+	}
+
+	private void applyMinimumRatingFilter(Query query, double averageRating) {
+		logger.info("Applying minimum rating filter:  {}", averageRating);
+		if (averageRating > 0) {
+			query.addCriteria(Criteria.where("averageRating").gte(averageRating));
+		}
+	}
+
+	private void applyInStockFilter(Query query, boolean applyInStockFilter) {
+		logger.info("Applying inStock filter: {}", applyInStockFilter);
+		if (applyInStockFilter) {
+			query.addCriteria(Criteria.where("inventory.inStock").is(applyInStockFilter));
+		}
+	}
+
 	private void applyMinimumAndMaximumFilter(Query query, double minValue, double maxValue) {
-	    logger.info("Applying price range filter: minValue={} maxValue={}", minValue, maxValue);
-		query.addCriteria(Criteria.where("pricing.sellingPrice").gte(minValue).lte(maxValue));		
+		logger.info("Applying price range filter: minValue={} maxValue={}", minValue, maxValue);
+		if (minValue < maxValue) {
+			query.addCriteria(Criteria.where("pricing.sellingPrice").gte(minValue).lte(maxValue));
+		}
 	}
 
 	private void applyDiscountFilter(Query query, boolean applyDiscountFilter) {
-	    logger.info("Applying discount filter: {}", applyDiscountFilter);
+		logger.info("Applying discount filter: {}", applyDiscountFilter);
 		if (applyDiscountFilter) {
 			Document exprDoc = new Document("$gt", List.of("$pricing.mrp", "$pricing.sellingPrice"));
 			query.addCriteria(Criteria.where("$expr").is(exprDoc));
-		}		
+		}
 	}
 
 	private void applyTagsFilter(Query query, List<String> tagIds) {
-	    logger.info("Applying tagIds filter with tagIds={}", tagIds);
+		logger.info("Applying tagIds filter with tagIds={}", tagIds);
 		if (Objects.nonNull(tagIds) && !tagIds.isEmpty()) {
 			Criteria tagIdsCriteria = Criteria.where(AppConstants.TAGIDS).in(tagIds);
 			query.addCriteria(tagIdsCriteria);
-		}		
+		}
 	}
 
 	private void applyCategoryFilter(Query query, String category) {
-	    logger.info("Applying category filter with category={}", category);
+		logger.info("Applying category filter with category={}", category);
 		if (Objects.nonNull(category) && !category.isBlank()) {
 			Criteria categoryCriteria = Criteria.where(AppConstants.PRODUCT_CATEGORY).regex(category, "i");
 			query.addCriteria(categoryCriteria);
@@ -272,17 +344,22 @@ public class ProductServiceImpl implements ProductService {
 
 	}
 
-	private void applyNameFilter(Query query, String name) {
-	    logger.info("Applying name filter with name={}", name);
-		if (Objects.nonNull(name) && !name.isBlank()) {
-			Criteria nameFilter = Criteria.where(AppConstants.PRODUCT_NAME).regex(name, "i");
-			query.addCriteria(nameFilter);
-		}
+	private void applySearchQueryFilter(Query query, String searchQuery) {
+		if (Objects.nonNull(searchQuery) && !searchQuery.isBlank()) {
+			logger.info("Applying search filter on name and description for query: '{}'", searchQuery);
 
+			Criteria nameFilter = Criteria.where(AppConstants.PRODUCT_NAME).regex(searchQuery, "i");
+			Criteria descriptionFilter = Criteria.where(AppConstants.PRODUCT_DESCRPTION).regex(searchQuery, "i");
+
+			query.addCriteria(nameFilter);
+			query.addCriteria(descriptionFilter);
+		} else {
+			logger.debug("No search query provided, skipping search filter.");
+		}
 	}
 
 	private void applyCursorFilter(Query query, String cursorId, boolean goingBackward) {
-	    logger.info("Applying cursor filter with cursorId={} and goingBackward={}", cursorId, goingBackward);
+		logger.info("Applying cursor filter with cursorId={} and goingBackward={}", cursorId, goingBackward);
 		if (Objects.nonNull(cursorId) && !cursorId.isBlank()) {
 			Criteria cursorCriteria = goingBackward ? Criteria.where(AppConstants.PRODUCT_ID).lt(cursorId)
 					: Criteria.where(AppConstants.PRODUCT_ID).gt(cursorId);
