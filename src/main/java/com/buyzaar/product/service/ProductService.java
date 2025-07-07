@@ -25,8 +25,9 @@ public interface ProductService {
 	
 	List<Currency> getAllCurrencies();
 
-	List<Product> getAllProducts(String cursorId, int limit, boolean goingBackward, String name, String category, List<String> tagIds, double minValue, double maxValue, boolean applyDiscountFilter);
-
+	List<Product> getAllProducts(String cursorId, int limit, boolean goingBackward, String query, String category,
+			List<String> tagIds, double minValue, double maxValue, boolean applyDiscountFilter,
+			boolean applyInStockFilter, double averagerating, String sortBy);
 
 
 
