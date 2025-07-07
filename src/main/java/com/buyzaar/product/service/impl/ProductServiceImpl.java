@@ -1,45 +1,67 @@
 package com.buyzaar.product.service.impl;
 
+import java.io.InputStream;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import org.bson.Document;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.MongoOperations;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
 import com.buyzaar.product.constants.AppConstants;
+import com.buyzaar.product.enums.ProductStatus;
+import com.buyzaar.product.exceptions.ImageUploadException;
 import com.buyzaar.product.model.entity.Currency;
+import com.buyzaar.product.model.entity.Image;
+import com.buyzaar.product.model.entity.Inventory;
 import com.buyzaar.product.model.entity.Pricing;
 import com.buyzaar.product.model.entity.PricingHistory;
 import com.buyzaar.product.model.entity.Product;
 import com.buyzaar.product.model.entity.Tag;
+import com.buyzaar.product.model.entity.Variant;
 import com.buyzaar.product.service.ProductService;
-import com.buyzaar.product.utils.ProductUtils;
-import com.buyzaar.product.utils.SnowflakeIdGenerator;
+import com.buyzaar.product.service.utils.ProductUtils;
+import com.buyzaar.product.service.utils.SnowflakeIdGenerator;
 
+import io.minio.MinioClient;
+import io.minio.PutObjectArgs;
 
 @Service
 public class ProductServiceImpl implements ProductService {
 
 	Logger logger = LoggerFactory.getLogger(this.getClass());
 
+	@Value("${minio.bucket}")
+	private String bucket;
+
+	private MinioClient minioClient;
+
 	private MongoOperations mongoOperations;
 
 	private SnowflakeIdGenerator idGenerator;
 
-	public ProductServiceImpl(MongoOperations mongoOperations, SnowflakeIdGenerator idGenerator) {
+	public ProductServiceImpl(MinioClient minioClient, MongoOperations mongoOperations,
+			SnowflakeIdGenerator idGenerator) {
+		this.minioClient = minioClient;
 		this.mongoOperations = mongoOperations;
 		this.idGenerator = idGenerator;
 	}
@@ -112,9 +134,9 @@ public class ProductServiceImpl implements ProductService {
 				List<String> newMergedTags = mergedTags.stream().collect(Collectors.toList());
 				update.set(AppConstants.TAGIDS, newMergedTags);
 			});
-			Optional.ofNullable(product.getPricing()).ifPresent(price->{
-				List<PricingHistory> pricingHistory= new ArrayList<>();
-				pricingHistory.add(new PricingHistory(price.getSellingPrice(),LocalDateTime.now(),null));
+			Optional.ofNullable(product.getPricing()).ifPresent(price -> {
+				List<PricingHistory> pricingHistory = new ArrayList<>();
+				pricingHistory.add(new PricingHistory(price.getSellingPrice(), LocalDateTime.now(), null));
 				price.setHistory(pricingHistory);
 				update.set(AppConstants.PRODUCT_PRICING, price);
 			});
@@ -126,9 +148,9 @@ public class ProductServiceImpl implements ProductService {
 			product.setCreatedAt(now);
 			product.setUpdatedAt(now);
 			product.setProductId(String.valueOf(idGenerator.nextId()));
-			Optional.ofNullable(product.getPricing()).ifPresent(price->{
-				List<PricingHistory> pricingHistory= new ArrayList<>();
-				pricingHistory.add(new PricingHistory(price.getSellingPrice(),LocalDateTime.now(),null));
+			Optional.ofNullable(product.getPricing()).ifPresent(price -> {
+				List<PricingHistory> pricingHistory = new ArrayList<>();
+				pricingHistory.add(new PricingHistory(price.getSellingPrice(), LocalDateTime.now(), null));
 				price.setHistory(pricingHistory);
 			});
 			mongoOperations.save(product);
@@ -140,6 +162,7 @@ public class ProductServiceImpl implements ProductService {
 	public Product getProduct(String productId) {
 		logger.debug("Fetching product with ID: {}", productId);
 		Product queriedProduct = fetchProductById(productId);
+		logger.info("Product {}", queriedProduct);
 		if (Objects.isNull(queriedProduct)) {
 			logger.error("Product not found: {}", productId);
 			throw new NoSuchElementException(AppConstants.PRODUCT_DOES_NOT_EXIST + productId);
@@ -181,28 +204,27 @@ public class ProductServiceImpl implements ProductService {
 	@Override
 	public void updatePriceForProductId(String productId, Pricing request) {
 		Product product = fetchProductById(productId);
-		if(Objects.nonNull(product)) {
-			Optional.ofNullable(request.getMrp()).ifPresent(mrp->
-				product.getPricing().setMrp(mrp)
-			);
+		if (Objects.nonNull(product)) {
+			Optional.ofNullable(request.getMrp()).ifPresent(mrp -> product.getPricing().setMrp(mrp));
 			Optional.ofNullable(request.getSellingPrice()).ifPresent(sellingPrice -> {
-			    List<PricingHistory> history = product.getPricing().getHistory();
-			    if (history != null && !history.isEmpty()) {
-			        PricingHistory last = history.get(history.size() - 1);
-			        last.setToDate(LocalDateTime.now());
-			    } else {
-			        history = new ArrayList<>();
-			        product.getPricing().setHistory(history);
-			    }
+				List<PricingHistory> history = product.getPricing().getHistory();
+				if (history != null && !history.isEmpty()) {
+					PricingHistory last = history.get(history.size() - 1);
+					last.setToDate(LocalDateTime.now());
+				} else {
+					history = new ArrayList<>();
+					product.getPricing().setHistory(history);
+				}
 
-			    PricingHistory newHistory = new PricingHistory(sellingPrice, LocalDateTime.now(), null);
-			    history.add(newHistory);
-			    product.getPricing().setSellingPrice(sellingPrice);
+				PricingHistory newHistory = new PricingHistory(sellingPrice, LocalDateTime.now(), null);
+				history.add(newHistory);
+				product.getPricing().setSellingPrice(sellingPrice);
 			});
 			Update update = new Update();
-			update.set(AppConstants.PRODUCT_PRICING,product.getPricing());
-			mongoOperations.updateFirst(ProductUtils.createQuery(AppConstants.PRODUCT_ID, productId), update, Product.class);
-			
+			update.set(AppConstants.PRODUCT_PRICING, product.getPricing());
+			mongoOperations.updateFirst(ProductUtils.createQuery(AppConstants.PRODUCT_ID, productId), update,
+					Product.class);
+
 		}
 	}
 
@@ -374,4 +396,198 @@ public class ProductServiceImpl implements ProductService {
 				.include("pricing.sellingPrice").include("pricing.mrp");
 		return mongoOperations.findOne(query, Product.class);
 	}
+
+	@Override
+	public List<Product> getRelatedProductsByProductId(String productId) {
+		Product product = fetchProductById(productId);
+		if (Objects.nonNull(product)) {
+			Query query = new Query();
+
+			List<String> categories = Objects.nonNull(product.getCategory()) && !product.getCategory().isEmpty()
+					? product.getCategory()
+					: new ArrayList<>();
+
+			if (categories.isEmpty())
+				return new ArrayList<>();
+
+			query.addCriteria(Criteria.where("productId").ne(productId));
+			query.addCriteria(Criteria.where(AppConstants.PRODUCT_CATEGORY).in(categories));
+			query.limit(10);
+			logger.info("Query {}", query);
+			List<Product> allRelatedProducts = mongoOperations.find(query, Product.class);
+			Collections.shuffle(allRelatedProducts);
+			return allRelatedProducts.stream().limit(10).collect(Collectors.toList());
+		}
+		return new ArrayList<>();
+	}
+
+	@Override
+	public Long getCount() {
+		return mongoOperations.count(new Query(), Product.class);
+	}
+
+	@Override
+	public String toggleProductStatus(String productId) {
+		Product product = fetchProductById(productId);
+
+		if (Objects.isNull(product)) {
+			throw new NoSuchElementException(AppConstants.PRODUCT_DOES_NOT_EXIST + productId);
+		}
+
+		ProductStatus currentStatus = product.getStatus();
+		ProductStatus newStatus = (currentStatus == ProductStatus.ACTIVE) ? ProductStatus.INACTIVE
+				: ProductStatus.ACTIVE;
+
+		product.setStatus(newStatus);
+		mongoOperations.save(product);
+
+		return "Product status updated to: " + newStatus;
+	}
+
+	@Override
+	public String saveVariant(String productId, Variant variant) {
+		Product product = fetchProductById(productId);
+		if (Objects.isNull(product)) {
+			throw new NoSuchElementException(AppConstants.PRODUCT_DOES_NOT_EXIST + productId);
+		}
+
+		if (Objects.isNull(variant)) {
+			throw new IllegalArgumentException("Variant cannot be null");
+		}
+
+		variant.setAttributes(Optional.ofNullable(variant.getAttributes()).orElseGet(HashMap::new));
+		variant.setImages(Optional.ofNullable(variant.getImages()).orElseGet(ArrayList::new));
+		variant.setInventory(Optional.ofNullable(variant.getInventory()).orElseGet(Inventory::new));
+		variant.setPricing(Optional.ofNullable(variant.getPricing()).orElseGet(Pricing::new));
+		variant.setVariantId(String.valueOf(idGenerator.nextId()));
+		variant.setCreatedAt(LocalDateTime.now());
+		variant.setUpdatedAt(LocalDateTime.now());
+
+		Pricing pricing = variant.getPricing();
+		List<PricingHistory> history = Optional.ofNullable(pricing.getHistory()).orElse(new ArrayList<>());
+
+		if (Objects.nonNull(pricing.getSellingPrice())) {
+			history.add(new PricingHistory(pricing.getSellingPrice(), LocalDateTime.now(), null));
+		}
+
+		pricing.setHistory(history);
+		variant.setPricing(pricing);
+
+		List<Variant> variants = Optional.ofNullable(product.getVariants()).orElseGet(ArrayList::new);
+		variants.add(variant);
+		product.setVariants(variants);
+
+		mongoOperations.save(product);
+
+		return "Variant saved successfully with ID: " + variant.getVariantId();
+	}
+
+	@Override
+	public String updatePriceForVariant(String productId, String variantId, Pricing request) {
+		Product product = fetchProductById(productId);
+		if (Objects.isNull(product)) {
+			throw new NoSuchElementException(AppConstants.PRODUCT_DOES_NOT_EXIST + productId);
+		}
+
+		List<Variant> variants = Optional.ofNullable(product.getVariants())
+				.orElseThrow(() -> new NoSuchElementException("No variants found for product: " + productId));
+
+		boolean updated = false;
+
+		for (Variant variant : variants) {
+			if (variantId.equals(variant.getVariantId())) {
+				Pricing pricing = Optional.ofNullable(variant.getPricing()).orElse(new Pricing());
+
+				Optional.ofNullable(request.getMrp()).ifPresent(pricing::setMrp);
+
+				Optional.ofNullable(request.getSellingPrice()).ifPresent(sellingPrice -> {
+					List<PricingHistory> history = Optional.ofNullable(pricing.getHistory()).orElse(new ArrayList<>());
+
+					if (!history.isEmpty()) {
+						history.get(history.size() - 1).setToDate(LocalDateTime.now());
+					}
+
+					history.add(new PricingHistory(sellingPrice, LocalDateTime.now(), null));
+					pricing.setSellingPrice(sellingPrice);
+					pricing.setHistory(history);
+				});
+
+				Optional.ofNullable(request.getCurrencyCode()).ifPresent(pricing::setCurrencyCode);
+
+				variant.setPricing(pricing);
+				updated = true;
+				break;
+			}
+		}
+
+		if (!updated) {
+			throw new NoSuchElementException("Variant not found with ID: " + variantId);
+		}
+
+		mongoOperations.save(product);
+		return "Pricing updated successfully for variant ID: " + variantId + " in product ID: " + productId;
+	}
+
+	@Override
+	public String uploadImageForVariant(String productId, String variantId, String originalFilename, MultipartFile file)
+			throws ImageUploadException {
+		Product product = fetchProductById(productId);
+		if (Objects.isNull(product)) {
+			throw new NoSuchElementException(AppConstants.PRODUCT_DOES_NOT_EXIST + productId);
+		}
+
+		List<Variant> variants = product.getVariants();
+		if (Objects.isNull(variants) || variants.isEmpty()) {
+			throw new IllegalStateException("No variants found for product " + productId);
+		}
+
+		for (int i = 0; i < variants.size(); i++) {
+			Variant variant = variants.get(i);
+			if (variant.getVariantId().equals(variantId)) {
+
+				List<Image> images = Optional.ofNullable(variant.getImages()).orElseGet(ArrayList::new);
+
+				int nextOrder = images.stream().map(Image::getOrder).max(Integer::compareTo).orElse(0) + 1;
+
+				String fileName = productId + "_" + variantId + "_" + images.size();
+				String altText = generateAltText(product, variant);
+
+				Image image = new Image(fileName, altText, nextOrder);
+				images.add(image);
+
+				try (InputStream inputStream = file.getInputStream()) {
+					minioClient.putObject(PutObjectArgs.builder().bucket(bucket).object(fileName)
+							.stream(inputStream, file.getSize(), -1).contentType(file.getContentType()).build());
+
+					variant.setImages(images);
+					variants.set(i, variant);
+					mongoOperations.save(product);
+
+					logger.info("Image uploaded successfully: {}, order: {}, altText: {}", fileName, nextOrder,
+							altText);
+					return "Image uploaded successfully for variant " + variantId + " with name " + fileName;
+				} catch (Exception e) {
+					logger.error("Failed to upload image '{}' for variant '{}'", fileName, variantId, e);
+					throw new ImageUploadException("Image upload failed for variant " + variantId, e);
+				}
+			}
+		}
+
+		throw new NoSuchElementException("Variant with ID " + variantId + " not found in product " + productId);
+	}
+
+	public String generateAltText(Product product, Variant variant) {
+		StringBuilder altText = new StringBuilder("Image of ");
+		altText.append(product.getName());
+
+		Map<String, String> specs = variant.getAttributes();
+
+		if (specs != null && !specs.isEmpty()) {
+			altText.append(" - ");
+			altText.append(specs.entrySet().stream().map(Entry::getValue).collect(Collectors.joining(", ")));
+		}
+
+		return altText.toString();
+	}
+
 }
