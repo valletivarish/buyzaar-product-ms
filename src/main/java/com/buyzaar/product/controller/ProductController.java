@@ -101,4 +101,9 @@ public class ProductController {
 		return new ResponseEntity<>(productService.getCount(), HttpStatus.OK);
 	}
 
+	@PatchMapping("{productId}/status")
+	public ResponseEntity<String> toggleProductStatus(@PathVariable String productId) {
+		return new ResponseEntity<>(productService.toggleProductStatus(productId), HttpStatus.OK);
+	}
+
 }
