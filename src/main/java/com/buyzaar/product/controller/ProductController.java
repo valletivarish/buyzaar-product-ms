@@ -85,3 +85,10 @@ public class ProductController {
 		return new ResponseEntity<>(productService.getAllProducts(cursorId, limit, goingBackward, query, category,
 				tagIds, min, max, applyDiscountFilter, applyInStockFilter, averagerating, sortBy), HttpStatus.OK);
 	}
+
+	@GetMapping("{productId}/summary")
+	public ResponseEntity<Product> getProductSummary(@PathVariable String productId) {
+		return new ResponseEntity<>(productService.getProductSummary(productId), HttpStatus.OK);
+	}
+
+}
