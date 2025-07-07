@@ -366,4 +366,12 @@ public class ProductServiceImpl implements ProductService {
 			query.addCriteria(cursorCriteria);
 		}
 	}
+
+	@Override
+	public Product getProductSummary(String productId) {
+		Query query = ProductUtils.createQuery(AppConstants.PRODUCT_ID, productId);
+		query.fields().include(AppConstants.PRODUCT_NAME).include(AppConstants.PRODUCT_BRAND)
+				.include("pricing.sellingPrice").include("pricing.mrp");
+		return mongoOperations.findOne(query, Product.class);
+	}
 }
