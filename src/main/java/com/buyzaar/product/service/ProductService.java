@@ -35,4 +35,17 @@ public interface ProductService {
 
 	Product getProductSummary(String productId);
 
+	List<Product> getRelatedProductsByProductId(String productId);
+
+	Long getCount();
+
+	String toggleProductStatus(String productId);
+
+	String saveVariant(String productId, Variant variant);
+
+	String updatePriceForVariant(String productId, String variantId, Pricing request);
+
+	String uploadImageForVariant(String productId, String variantId, String originalFilename, MultipartFile file)
+			throws ImageUploadException;
+
 }
