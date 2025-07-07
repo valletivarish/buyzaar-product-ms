@@ -106,4 +106,10 @@ public class ProductController {
 		return new ResponseEntity<>(productService.toggleProductStatus(productId), HttpStatus.OK);
 	}
 
+	@PostMapping("{productId}/variants")
+	public ResponseEntity<String> saveVariant(@PathVariable String productId, @RequestBody InputRequest<Variant> inputRequest){
+		Variant variant = inputRequest.getRequest();
+		return new ResponseEntity<>(productService.saveVariant(productId,variant),HttpStatus.OK);
+	}
+
 }
