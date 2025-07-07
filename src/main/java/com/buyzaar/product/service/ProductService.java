@@ -2,10 +2,14 @@ package com.buyzaar.product.service;
 
 import java.util.List;
 
+import org.springframework.web.multipart.MultipartFile;
+
+import com.buyzaar.product.exceptions.ImageUploadException;
 import com.buyzaar.product.model.entity.Currency;
 import com.buyzaar.product.model.entity.Pricing;
 import com.buyzaar.product.model.entity.Product;
 import com.buyzaar.product.model.entity.Tag;
+import com.buyzaar.product.model.entity.Variant;
 
 public interface ProductService {
 
@@ -22,14 +26,13 @@ public interface ProductService {
 	void deassignTagsForProductId(String productId, List<String> tagIds);
 
 	void updatePriceForProductId(String productId, Pricing request);
-	
+
 	List<Currency> getAllCurrencies();
 
 	List<Product> getAllProducts(String cursorId, int limit, boolean goingBackward, String query, String category,
 			List<String> tagIds, double minValue, double maxValue, boolean applyDiscountFilter,
 			boolean applyInStockFilter, double averagerating, String sortBy);
 
-
-
+	Product getProductSummary(String productId);
 
 }
