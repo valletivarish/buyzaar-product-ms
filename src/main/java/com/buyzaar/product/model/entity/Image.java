@@ -1,39 +1,41 @@
 package com.buyzaar.product.model.entity;
- public class Image {
-        private String url;
-        private String altText;
-        private Integer order;
 
-        public Image() {
-        }
+public class Image {
+	private String fileName;
+	private String altText;
+	private Integer order;
 
-        public Image(String url, String altText, Integer order) {
-            this.url = url;
-            this.altText = altText;
-            this.order = order;
-        }
+	public Image() {
+	}
 
-        public String getUrl() {
-            return url;
-        }
+	public Image(String fileName, String altText, Integer order) {
+		this.fileName = fileName;
+		this.altText = altText;
+		this.order = order;
+	}
 
-        public void setUrl(String url) {
-            this.url = url;
-        }
+	public String getFileName() {
+		return fileName;
+	}
 
-        public String getAltText() {
-            return altText;
-        }
+	public void setFileName(String fileName) {
+		this.fileName = fileName;
+	}
 
-        public void setAltText(String altText) {
-            this.altText = altText;
-        }
+	public String getAltText() {
+		return altText;
+	}
 
-        public Integer getOrder() {
-            return order;
-        }
+	public void setAltText(String altText) {
+		this.altText = altText;
+	}
 
-        public void setOrder(Integer order) {
-            this.order = order;
-        }
-    }
+	public Integer getOrder() {
+		return order;
+	}
+
+	public void setOrder(Integer order) {
+		this.order = order;
+	}
+
+}
