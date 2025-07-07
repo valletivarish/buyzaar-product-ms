@@ -91,4 +91,9 @@ public class ProductController {
 		return new ResponseEntity<>(productService.getProductSummary(productId), HttpStatus.OK);
 	}
 
+	@GetMapping("{productId}/related")
+	public ResponseEntity<List<Product>> getRelatedProductsByProductId(@PathVariable String productId) {
+		return new ResponseEntity<>(productService.getRelatedProductsByProductId(productId), HttpStatus.OK);
+	}
+
 }
