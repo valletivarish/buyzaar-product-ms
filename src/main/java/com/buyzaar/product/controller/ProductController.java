@@ -96,4 +96,9 @@ public class ProductController {
 		return new ResponseEntity<>(productService.getRelatedProductsByProductId(productId), HttpStatus.OK);
 	}
 
+	@GetMapping("count")
+	public ResponseEntity<Long> getCount() {
+		return new ResponseEntity<>(productService.getCount(), HttpStatus.OK);
+	}
+
 }
