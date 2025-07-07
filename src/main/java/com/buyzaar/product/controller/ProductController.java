@@ -107,23 +107,28 @@ public class ProductController {
 	}
 
 	@PostMapping("{productId}/variants")
-	public ResponseEntity<String> saveVariant(@PathVariable String productId, @RequestBody InputRequest<Variant> inputRequest){
+	public ResponseEntity<String> saveVariant(@PathVariable String productId,
+			@RequestBody InputRequest<Variant> inputRequest) {
 		Variant variant = inputRequest.getRequest();
-		return new ResponseEntity<>(productService.saveVariant(productId,variant),HttpStatus.OK);
+		return new ResponseEntity<>(productService.saveVariant(productId, variant), HttpStatus.OK);
 	}
 
 	@PutMapping("{productId}/variants/{variantId}/pricing")
-	public ResponseEntity<String> updatePriceForVariant(@PathVariable String productId,@PathVariable String variantId, @RequestBody InputRequest<Pricing> pricing){
-		return new ResponseEntity<>(productService.updatePriceForVariant(productId,variantId,pricing.getRequest()),HttpStatus.OK);
+	public ResponseEntity<String> updatePriceForVariant(@PathVariable String productId, @PathVariable String variantId,
+			@RequestBody InputRequest<Pricing> pricing) {
+		return new ResponseEntity<>(productService.updatePriceForVariant(productId, variantId, pricing.getRequest()),
+				HttpStatus.OK);
 	}
 
 	@PatchMapping("{productId}/variants/{variantId}/images")
-	public ResponseEntity<String> uploadImagesForVariant(@PathVariable String productId, @PathVariable String variantId, @RequestParam(required = true) MultipartFile file) throws ImageUploadException{
+	public ResponseEntity<String> uploadImagesForVariant(@PathVariable String productId, @PathVariable String variantId,
+			@RequestParam(required = true) MultipartFile file) throws ImageUploadException {
 		String originalFilename = file.getOriginalFilename();
 		if (!Objects.equals(file.getContentType(), "image/png")) {
-            return new ResponseEntity<>("Only PNG files are allowed.",HttpStatus.BAD_REQUEST);
-        }
-		return new ResponseEntity<>(productService.uploadImageForVariant(productId,variantId,originalFilename,file),HttpStatus.OK);
+			return new ResponseEntity<>("Only PNG files are allowed.", HttpStatus.BAD_REQUEST);
+		}
+		return new ResponseEntity<>(productService.uploadImageForVariant(productId, variantId, originalFilename, file),
+				HttpStatus.OK);
 	}
 
 }
