@@ -117,4 +117,13 @@ public class ProductController {
 		return new ResponseEntity<>(productService.updatePriceForVariant(productId,variantId,pricing.getRequest()),HttpStatus.OK);
 	}
 
+	@PatchMapping("{productId}/variants/{variantId}/images")
+	public ResponseEntity<String> uploadImagesForVariant(@PathVariable String productId, @PathVariable String variantId, @RequestParam(required = true) MultipartFile file) throws ImageUploadException{
+		String originalFilename = file.getOriginalFilename();
+		if (!Objects.equals(file.getContentType(), "image/png")) {
+            return new ResponseEntity<>("Only PNG files are allowed.",HttpStatus.BAD_REQUEST);
+        }
+		return new ResponseEntity<>(productService.uploadImageForVariant(productId,variantId,originalFilename,file),HttpStatus.OK);
+	}
+
 }
