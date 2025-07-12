@@ -19,10 +19,10 @@ public class CurrencyController {
 	public CurrencyController(ProductService productService) {
 		this.productService = productService;
 	}
-	
+
 	@GetMapping
-	public ResponseEntity<List<Currency>> getAllCurrencies(){
-		return new ResponseEntity<>(productService.getAllCurrencies(),HttpStatus.OK);
+	public ResponseEntity<List<Currency>> getAllCurrencies() {
+		return new ResponseEntity<>(productService.getAllCurrencies(), HttpStatus.OK);
 	}
-	
+
 }

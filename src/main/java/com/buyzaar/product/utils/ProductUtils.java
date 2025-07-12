@@ -1,12 +1,16 @@
 package com.buyzaar.product.utils;
 
 import java.util.Collection;
+import java.util.List;
+import java.util.stream.Collectors;
 
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 
+import com.buyzaar.product.model.entity.Specification;
+
 public class ProductUtils {
-	
+
 	public static Query createQuery(String fieldName, Object value) {
 		Criteria criteria;
 
@@ -25,6 +29,18 @@ public class ProductUtils {
 		}
 
 		return new Query(criteria);
+	}
+
+	public static String generateAltText(String name, List<Specification> specifications) {
+		StringBuilder altText = new StringBuilder("Image of ");
+		altText.append(name);
+
+		if (specifications != null && !specifications.isEmpty()) {
+			altText.append(" - ");
+			altText.append(specifications.stream().map(Specification::getValue).collect(Collectors.joining(", ")));
+		}
+
+		return altText.toString();
 	}
 
 }

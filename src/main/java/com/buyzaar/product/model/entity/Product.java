@@ -4,65 +4,47 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.index.CompoundIndex;
+import org.springframework.data.mongodb.core.index.CompoundIndexes;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 
+import com.buyzaar.product.enums.ProductStatus;
+
 @Document(collection = "products")
+@CompoundIndexes({ @CompoundIndex(name = "pricing_sellingPrice_idx", def = "{'pricing.sellingPrice': 1}"),
+		@CompoundIndex(name = "inventory_inStock_idx", def = "{'inventory.inStock': 1}"),
+		@CompoundIndex(name = "averageRating_idx", def = "{'averageRating': 1}") })
 public class Product {
 
 	@Id
-	private String id;
 	@Indexed(unique = true)
 	private String productId;
+	@Indexed
 	private String name;
+	@Indexed
 	private String brand;
+	@Indexed
 	private String description;
-	private String category;
+	@Indexed
+	private List<String> category;
+	@Indexed
 	private List<String> tagIds;
+	@Indexed
 	private List<Specification> specifications;
 	private List<Variant> variants;
 	private Pricing pricing;
-	private Inventory inventory;
 	private String sellerId;
 	private List<Image> images;
-	private Rating rating;
+	private Inventory inventory;
+	private Double averageRating = 0.0;
+	private Integer ratingCount = 0;
 	private List<CustomerReview> reviews;
+	private ProductStatus status;
 	private LocalDateTime createdAt;
 	private LocalDateTime updatedAt;
 
 	public Product() {
-	}
-
-	public Product(String id, String productId, String name, String brand, String description, String category,
-			List<String> tagIds, List<Specification> specifications, List<Variant> variants, Pricing pricing,
-			Inventory inventory, String sellerId, List<Image> images, Rating rating, List<CustomerReview> reviews,
-			LocalDateTime createdAt, LocalDateTime updatedAt) {
-		super();
-		this.id = id;
-		this.productId = productId;
-		this.name = name;
-		this.brand = brand;
-		this.description = description;
-		this.category = category;
-		this.tagIds = tagIds;
-		this.specifications = specifications;
-		this.variants = variants;
-		this.pricing = pricing;
-		this.inventory = inventory;
-		this.sellerId = sellerId;
-		this.images = images;
-		this.rating = rating;
-		this.reviews = reviews;
-		this.createdAt = createdAt;
-		this.updatedAt = updatedAt;
-	}
-
-	public String getId() {
-		return id;
-	}
-
-	public void setId(String id) {
-		this.id = id;
 	}
 
 	public String getProductId() {
@@ -97,11 +79,11 @@ public class Product {
 		this.description = description;
 	}
 
-	public String getCategory() {
+	public List<String> getCategory() {
 		return category;
 	}
 
-	public void setCategory(String category) {
+	public void setCategory(List<String> category) {
 		this.category = category;
 	}
 
@@ -137,14 +119,6 @@ public class Product {
 		this.pricing = pricing;
 	}
 
-	public Inventory getInventory() {
-		return inventory;
-	}
-
-	public void setInventory(Inventory inventory) {
-		this.inventory = inventory;
-	}
-
 	public String getSellerId() {
 		return sellerId;
 	}
@@ -161,12 +135,28 @@ public class Product {
 		this.images = images;
 	}
 
-	public Rating getRating() {
-		return rating;
+	public Inventory getInventory() {
+		return inventory;
 	}
 
-	public void setRating(Rating rating) {
-		this.rating = rating;
+	public void setInventory(Inventory inventory) {
+		this.inventory = inventory;
+	}
+
+	public Double getAverageRating() {
+		return averageRating;
+	}
+
+	public void setAverageRating(Double averageRating) {
+		this.averageRating = averageRating;
+	}
+
+	public Integer getRatingCount() {
+		return ratingCount;
+	}
+
+	public void setRatingCount(Integer ratingCount) {
+		this.ratingCount = ratingCount;
 	}
 
 	public List<CustomerReview> getReviews() {
@@ -175,6 +165,14 @@ public class Product {
 
 	public void setReviews(List<CustomerReview> reviews) {
 		this.reviews = reviews;
+	}
+
+	public ProductStatus getStatus() {
+		return status;
+	}
+
+	public void setStatus(ProductStatus status) {
+		this.status = status;
 	}
 
 	public LocalDateTime getCreatedAt() {
@@ -190,6 +188,30 @@ public class Product {
 	}
 
 	public void setUpdatedAt(LocalDateTime updatedAt) {
+		this.updatedAt = updatedAt;
+	}
+
+	public Product(String productId, String name, String brand, String description, List<String> category,
+			List<String> tagIds, List<Specification> specifications, List<Variant> variants, Pricing pricing,
+			String sellerId, List<Image> images, Inventory inventory, Double averageRating, Integer ratingCount,
+			List<CustomerReview> reviews, ProductStatus status, LocalDateTime createdAt, LocalDateTime updatedAt) {
+		this.productId = productId;
+		this.name = name;
+		this.brand = brand;
+		this.description = description;
+		this.category = category;
+		this.tagIds = tagIds;
+		this.specifications = specifications;
+		this.variants = variants;
+		this.pricing = pricing;
+		this.sellerId = sellerId;
+		this.images = images;
+		this.inventory = inventory;
+		this.averageRating = averageRating;
+		this.ratingCount = ratingCount;
+		this.reviews = reviews;
+		this.status = status;
+		this.createdAt = createdAt;
 		this.updatedAt = updatedAt;
 	}
 

@@ -1,14 +1,14 @@
 package com.buyzaar.product.service.impl;
 
+import java.io.IOException;
 import java.io.InputStream;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Optional;
@@ -36,14 +36,23 @@ import com.buyzaar.product.model.entity.Inventory;
 import com.buyzaar.product.model.entity.Pricing;
 import com.buyzaar.product.model.entity.PricingHistory;
 import com.buyzaar.product.model.entity.Product;
+import com.buyzaar.product.model.entity.Specification;
 import com.buyzaar.product.model.entity.Tag;
 import com.buyzaar.product.model.entity.Variant;
 import com.buyzaar.product.service.ProductService;
-import com.buyzaar.product.service.utils.ProductUtils;
-import com.buyzaar.product.service.utils.SnowflakeIdGenerator;
+import com.buyzaar.product.utils.ProductUtils;
+import com.buyzaar.product.utils.SnowflakeIdGenerator;
 
+import io.minio.GetPresignedObjectUrlArgs;
 import io.minio.MinioClient;
 import io.minio.PutObjectArgs;
+import io.minio.errors.ErrorResponseException;
+import io.minio.errors.InsufficientDataException;
+import io.minio.errors.InternalException;
+import io.minio.errors.InvalidResponseException;
+import io.minio.errors.ServerException;
+import io.minio.errors.XmlParserException;
+import io.minio.http.Method;
 
 @Service
 public class ProductServiceImpl implements ProductService {
@@ -110,9 +119,10 @@ public class ProductServiceImpl implements ProductService {
 	}
 
 	@Override
-	public void saveProduct(Product product) {
+	public void saveProduct(Product product) throws NoSuchAlgorithmException {
 		logger.debug("Saving product: {}", product.getProductId());
-		Product queriedProduct = fetchProductById(product.getProductId());
+		Query query = new Query(Criteria.where(AppConstants.PRODUCT_ID).is(product.getProductId()));
+		Product queriedProduct = mongoOperations.findOne(query, Product.class);
 		LocalDateTime now = LocalDateTime.now();
 		if (Objects.nonNull(queriedProduct)) {
 			logger.debug("Updating existing product: {}", product.getProductId());
@@ -147,6 +157,7 @@ public class ProductServiceImpl implements ProductService {
 			logger.debug("Creating new product: {}", product.getProductId());
 			product.setCreatedAt(now);
 			product.setUpdatedAt(now);
+			product.setStatus(ProductStatus.ACTIVE);
 			product.setProductId(String.valueOf(idGenerator.nextId()));
 			Optional.ofNullable(product.getPricing()).ifPresent(price -> {
 				List<PricingHistory> pricingHistory = new ArrayList<>();
@@ -159,23 +170,18 @@ public class ProductServiceImpl implements ProductService {
 	}
 
 	@Override
-	public Product getProduct(String productId) {
+	public Product getProduct(String productId) throws NoSuchAlgorithmException {
 		logger.debug("Fetching product with ID: {}", productId);
 		Product queriedProduct = fetchProductById(productId);
 		logger.info("Product {}", queriedProduct);
-		if (Objects.isNull(queriedProduct)) {
-			logger.error("Product not found: {}", productId);
-			throw new NoSuchElementException(AppConstants.PRODUCT_DOES_NOT_EXIST + productId);
-		}
+
 		return queriedProduct;
 	}
 
 	@Override
-	public void assignTagsForProductId(String productId, List<String> tagIds) {
+	public void assignTagsForProductId(String productId, List<String> tagIds) throws NoSuchAlgorithmException {
 		Product queriedProduct = fetchProductById(productId);
-		if (Objects.isNull(queriedProduct)) {
-			throw new NoSuchElementException(AppConstants.PRODUCT_DOES_NOT_EXIST + productId);
-		}
+
 		Query tagQuery = new Query(Criteria.where(AppConstants.TAG_ID).in(tagIds));
 		List<Tag> tags = mongoOperations.find(tagQuery, Tag.class);
 		LinkedHashSet<String> eligibleTags = tags.stream()
@@ -190,42 +196,71 @@ public class ProductServiceImpl implements ProductService {
 	}
 
 	@Override
-	public void deassignTagsForProductId(String productId, List<String> tagIds) {
+	public void deassignTagsForProductId(String productId, List<String> tagIds) throws NoSuchAlgorithmException {
 		Product queriedProduct = fetchProductById(productId);
 		List<String> tags = Optional.ofNullable(queriedProduct).map(Product::getTagIds).orElseGet(ArrayList::new);
 		tags.removeAll(tagIds);
 	}
 
-	private Product fetchProductById(String productId) {
+	private Product fetchProductById(String productId) throws NoSuchAlgorithmException {
 		Query query = new Query(Criteria.where(AppConstants.PRODUCT_ID).is(productId));
-		return mongoOperations.findOne(query, Product.class);
+		Product product = mongoOperations.findOne(query, Product.class);
+		if (Objects.isNull(product)) {
+			throw new NoSuchAlgorithmException(AppConstants.PRODUCT_DOES_NOT_EXIST + productId);
+		}
+		return product;
 	}
 
 	@Override
-	public void updatePriceForProductId(String productId, Pricing request) {
+	public String updatePriceForProductId(String productId, Pricing request) throws NoSuchAlgorithmException {
 		Product product = fetchProductById(productId);
-		if (Objects.nonNull(product)) {
-			Optional.ofNullable(request.getMrp()).ifPresent(mrp -> product.getPricing().setMrp(mrp));
-			Optional.ofNullable(request.getSellingPrice()).ifPresent(sellingPrice -> {
-				List<PricingHistory> history = product.getPricing().getHistory();
-				if (history != null && !history.isEmpty()) {
-					PricingHistory last = history.get(history.size() - 1);
-					last.setToDate(LocalDateTime.now());
-				} else {
-					history = new ArrayList<>();
-					product.getPricing().setHistory(history);
-				}
+		Pricing existingPricing = Objects.nonNull(product.getPricing()) ? product.getPricing() : new Pricing();
+		product.setPricing(existingPricing);
 
-				PricingHistory newHistory = new PricingHistory(sellingPrice, LocalDateTime.now(), null);
-				history.add(newHistory);
-				product.getPricing().setSellingPrice(sellingPrice);
-			});
-			Update update = new Update();
-			update.set(AppConstants.PRODUCT_PRICING, product.getPricing());
-			mongoOperations.updateFirst(ProductUtils.createQuery(AppConstants.PRODUCT_ID, productId), update,
-					Product.class);
+		boolean isUpdated = false;
 
+		if (Objects.nonNull(request.getMrp()) && !Objects.equals(existingPricing.getMrp(), request.getMrp())) {
+			existingPricing.setMrp(request.getMrp());
+			isUpdated = true;
 		}
+
+		if (Objects.nonNull(request.getSellingPrice())
+				&& !Objects.equals(existingPricing.getSellingPrice(), request.getSellingPrice())) {
+			List<PricingHistory> history = existingPricing.getHistory();
+			if (Objects.nonNull(history) && !history.isEmpty()) {
+				PricingHistory last = history.get(history.size() - 1);
+				last.setToDate(LocalDateTime.now());
+			} else {
+				history = new ArrayList<>();
+				existingPricing.setHistory(history);
+			}
+
+			PricingHistory newHistory = new PricingHistory(request.getSellingPrice(), LocalDateTime.now(), null);
+			history.add(newHistory);
+
+			existingPricing.setSellingPrice(request.getSellingPrice());
+			product.setUpdatedAt(LocalDateTime.now());
+			isUpdated = true;
+		}
+
+		if (Objects.nonNull(request.getCurrencyCode())
+				&& !Objects.equals(existingPricing.getCurrencyCode(), request.getCurrencyCode())) {
+			existingPricing.setCurrencyCode(request.getCurrencyCode());
+			isUpdated = true;
+		}
+
+		if (!isUpdated) {
+			return "No pricing changes detected for product ID " + productId;
+		}
+
+		Update update = new Update();
+		update.set(AppConstants.PRODUCT_PRICING, product.getPricing());
+		update.set(AppConstants.PRODUCT_UPDATED_AT, product.getUpdatedAt());
+
+		mongoOperations.updateFirst(ProductUtils.createQuery(AppConstants.PRODUCT_ID, productId), update,
+				Product.class);
+
+		return "Price updated successfully for product ID " + productId;
 	}
 
 	@Override
@@ -398,27 +433,24 @@ public class ProductServiceImpl implements ProductService {
 	}
 
 	@Override
-	public List<Product> getRelatedProductsByProductId(String productId) {
+	public List<Product> getRelatedProductsByProductId(String productId) throws NoSuchAlgorithmException {
 		Product product = fetchProductById(productId);
-		if (Objects.nonNull(product)) {
-			Query query = new Query();
+		Query query = new Query();
 
-			List<String> categories = Objects.nonNull(product.getCategory()) && !product.getCategory().isEmpty()
-					? product.getCategory()
-					: new ArrayList<>();
+		List<String> categories = Objects.nonNull(product.getCategory()) && !product.getCategory().isEmpty()
+				? product.getCategory()
+				: new ArrayList<>();
 
-			if (categories.isEmpty())
-				return new ArrayList<>();
+		if (categories.isEmpty())
+			return new ArrayList<>();
 
-			query.addCriteria(Criteria.where("productId").ne(productId));
-			query.addCriteria(Criteria.where(AppConstants.PRODUCT_CATEGORY).in(categories));
-			query.limit(10);
-			logger.info("Query {}", query);
-			List<Product> allRelatedProducts = mongoOperations.find(query, Product.class);
-			Collections.shuffle(allRelatedProducts);
-			return allRelatedProducts.stream().limit(10).collect(Collectors.toList());
-		}
-		return new ArrayList<>();
+		query.addCriteria(Criteria.where("productId").ne(productId));
+		query.addCriteria(Criteria.where(AppConstants.PRODUCT_CATEGORY).in(categories));
+		query.limit(10);
+		logger.info("Query {}", query);
+		List<Product> allRelatedProducts = mongoOperations.find(query, Product.class);
+		Collections.shuffle(allRelatedProducts);
+		return allRelatedProducts.stream().limit(10).collect(Collectors.toList());
 	}
 
 	@Override
@@ -427,12 +459,8 @@ public class ProductServiceImpl implements ProductService {
 	}
 
 	@Override
-	public String toggleProductStatus(String productId) {
+	public String toggleProductStatus(String productId) throws NoSuchAlgorithmException {
 		Product product = fetchProductById(productId);
-
-		if (Objects.isNull(product)) {
-			throw new NoSuchElementException(AppConstants.PRODUCT_DOES_NOT_EXIST + productId);
-		}
 
 		ProductStatus currentStatus = product.getStatus();
 		ProductStatus newStatus = (currentStatus == ProductStatus.ACTIVE) ? ProductStatus.INACTIVE
@@ -445,23 +473,22 @@ public class ProductServiceImpl implements ProductService {
 	}
 
 	@Override
-	public String saveVariant(String productId, Variant variant) {
+	public String saveVariant(String productId, Variant variant) throws NoSuchAlgorithmException {
 		Product product = fetchProductById(productId);
-		if (Objects.isNull(product)) {
-			throw new NoSuchElementException(AppConstants.PRODUCT_DOES_NOT_EXIST + productId);
-		}
 
 		if (Objects.isNull(variant)) {
 			throw new IllegalArgumentException("Variant cannot be null");
 		}
 
-		variant.setAttributes(Optional.ofNullable(variant.getAttributes()).orElseGet(HashMap::new));
+		variant.setSpecifications(
+				Optional.ofNullable(variant.getSpecifications()).orElseGet(ArrayList<Specification>::new));
 		variant.setImages(Optional.ofNullable(variant.getImages()).orElseGet(ArrayList::new));
 		variant.setInventory(Optional.ofNullable(variant.getInventory()).orElseGet(Inventory::new));
 		variant.setPricing(Optional.ofNullable(variant.getPricing()).orElseGet(Pricing::new));
 		variant.setVariantId(String.valueOf(idGenerator.nextId()));
 		variant.setCreatedAt(LocalDateTime.now());
 		variant.setUpdatedAt(LocalDateTime.now());
+		variant.setStatus(ProductStatus.ACTIVE);
 
 		Pricing pricing = variant.getPricing();
 		List<PricingHistory> history = Optional.ofNullable(pricing.getHistory()).orElse(new ArrayList<>());
@@ -483,63 +510,67 @@ public class ProductServiceImpl implements ProductService {
 	}
 
 	@Override
-	public String updatePriceForVariant(String productId, String variantId, Pricing request) {
+	public String updatePriceForVariant(String productId, String variantId, Pricing request)
+			throws NoSuchAlgorithmException {
 		Product product = fetchProductById(productId);
-		if (Objects.isNull(product)) {
-			throw new NoSuchElementException(AppConstants.PRODUCT_DOES_NOT_EXIST + productId);
-		}
 
 		List<Variant> variants = Optional.ofNullable(product.getVariants())
 				.orElseThrow(() -> new NoSuchElementException("No variants found for product: " + productId));
 
-		boolean updated = false;
-
 		for (Variant variant : variants) {
 			if (variantId.equals(variant.getVariantId())) {
-				Pricing pricing = Optional.ofNullable(variant.getPricing()).orElse(new Pricing());
+				Pricing existingPricing = Objects.nonNull(variant.getPricing()) ? variant.getPricing() : new Pricing();
+				boolean variantUpdated = false;
 
-				Optional.ofNullable(request.getMrp()).ifPresent(pricing::setMrp);
+				if (Objects.nonNull(request.getMrp()) && !Objects.equals(existingPricing.getMrp(), request.getMrp())) {
+					existingPricing.setMrp(request.getMrp());
+					variantUpdated = true;
+				}
 
-				Optional.ofNullable(request.getSellingPrice()).ifPresent(sellingPrice -> {
-					List<PricingHistory> history = Optional.ofNullable(pricing.getHistory()).orElse(new ArrayList<>());
-
+				if (Objects.nonNull(request.getSellingPrice())
+						&& !Objects.equals(existingPricing.getSellingPrice(), request.getSellingPrice())) {
+					List<PricingHistory> history = Objects.nonNull(existingPricing.getHistory())
+							? existingPricing.getHistory()
+							: new ArrayList<>();
 					if (!history.isEmpty()) {
 						history.get(history.size() - 1).setToDate(LocalDateTime.now());
 					}
+					history.add(new PricingHistory(request.getSellingPrice(), LocalDateTime.now(), null));
+					existingPricing.setSellingPrice(request.getSellingPrice());
+					existingPricing.setHistory(history);
+					variantUpdated = true;
+				}
 
-					history.add(new PricingHistory(sellingPrice, LocalDateTime.now(), null));
-					pricing.setSellingPrice(sellingPrice);
-					pricing.setHistory(history);
-				});
+				if (Objects.nonNull(request.getCurrencyCode())
+						&& !Objects.equals(existingPricing.getCurrencyCode(), request.getCurrencyCode())) {
+					existingPricing.setCurrencyCode(request.getCurrencyCode());
+					variantUpdated = true;
+				}
 
-				Optional.ofNullable(request.getCurrencyCode()).ifPresent(pricing::setCurrencyCode);
+				if (!variantUpdated) {
+					return "No pricing changes detected for variant ID: " + variantId + " in product ID: " + productId;
+				}
 
-				variant.setPricing(pricing);
-				updated = true;
-				break;
+				variant.setPricing(existingPricing);
+				variant.setUpdatedAt(LocalDateTime.now());
+				mongoOperations.save(product);
+				return "Pricing updated successfully for variant ID: " + variantId + " in product ID: " + productId;
 			}
 		}
 
-		if (!updated) {
-			throw new NoSuchElementException("Variant not found with ID: " + variantId);
-		}
-
-		mongoOperations.save(product);
-		return "Pricing updated successfully for variant ID: " + variantId + " in product ID: " + productId;
+		throw new NoSuchElementException("Variant not found with ID: " + variantId);
 	}
 
 	@Override
 	public String uploadImageForVariant(String productId, String variantId, String originalFilename, MultipartFile file)
-			throws ImageUploadException {
+			throws ImageUploadException, NoSuchAlgorithmException {
 		Product product = fetchProductById(productId);
-		if (Objects.isNull(product)) {
-			throw new NoSuchElementException(AppConstants.PRODUCT_DOES_NOT_EXIST + productId);
-		}
 
 		List<Variant> variants = product.getVariants();
 		if (Objects.isNull(variants) || variants.isEmpty()) {
 			throw new IllegalStateException("No variants found for product " + productId);
 		}
+		String fileName = "";
 
 		for (int i = 0; i < variants.size(); i++) {
 			Variant variant = variants.get(i);
@@ -549,8 +580,8 @@ public class ProductServiceImpl implements ProductService {
 
 				int nextOrder = images.stream().map(Image::getOrder).max(Integer::compareTo).orElse(0) + 1;
 
-				String fileName = productId + "_" + variantId + "_" + images.size();
-				String altText = generateAltText(product, variant);
+				fileName = productId + "_" + variantId + "_" + images.size();
+				String altText = ProductUtils.generateAltText(product.getName(), variant.getSpecifications());
 
 				Image image = new Image(fileName, altText, nextOrder);
 				images.add(image);
@@ -565,29 +596,202 @@ public class ProductServiceImpl implements ProductService {
 
 					logger.info("Image uploaded successfully: {}, order: {}, altText: {}", fileName, nextOrder,
 							altText);
-					return "Image uploaded successfully for variant " + variantId + " with name " + fileName;
-				} catch (Exception e) {
-					logger.error("Failed to upload image '{}' for variant '{}'", fileName, variantId, e);
-					throw new ImageUploadException("Image upload failed for variant " + variantId, e);
+
+				} catch (InvalidKeyException | ErrorResponseException | InsufficientDataException | InternalException
+						| InvalidResponseException | NoSuchAlgorithmException | ServerException | XmlParserException
+						| IllegalArgumentException | IOException e) {
+					throw new ImageUploadException("Image upload failed for product " + productId, e);
 				}
+			}
+		}
+
+		return "Image uploaded successfully for variant " + variantId + " with name " + fileName;
+	}
+
+	@Override
+	public String uploadImageForProduct(String productId, MultipartFile file)
+			throws ImageUploadException, NoSuchAlgorithmException {
+		Product product = fetchProductById(productId);
+
+		List<Image> images = Optional.ofNullable(product.getImages()).orElseGet(ArrayList::new);
+		int nextOrder = images.stream().map(Image::getOrder).max(Integer::compareTo).orElse(0) + 1;
+
+		String fileName = productId + "_" + images.size();
+		String altText = ProductUtils.generateAltText(product.getName(), product.getSpecifications());
+
+		Image image = new Image(fileName, altText, nextOrder);
+		images.add(image);
+		try (InputStream inputStream = file.getInputStream()) {
+			minioClient.putObject(PutObjectArgs.builder().bucket(bucket).object(fileName)
+					.stream(inputStream, file.getSize(), -1).contentType(file.getContentType()).build());
+			product.setImages(images);
+			mongoOperations.save(product);
+		} catch (InvalidKeyException | ErrorResponseException | InsufficientDataException | InternalException
+				| InvalidResponseException | NoSuchAlgorithmException | ServerException | XmlParserException
+				| IllegalArgumentException | IOException e) {
+			throw new ImageUploadException("Image upload failed for product " + productId, e);
+		}
+
+		return "Image uploaded successfully for product " + productId + " with name " + fileName;
+	}
+
+	@Override
+	public List<String> getAllImagesForProduct(String productId) throws NoSuchAlgorithmException {
+		Product product = fetchProductById(productId);
+		List<Image> images = Optional.ofNullable(product.getImages()).orElseGet(ArrayList::new);
+
+		return images.stream().map(image -> {
+			try {
+				return generatePresignedUrl(image.getFileName());
+			} catch (ImageUploadException e) {
+				logger.warn("Skipping image [{}] due to error generating URL: {}", image.getFileName(), e.getMessage());
+				return null;
+			}
+		}).filter(Objects::nonNull).collect(Collectors.toList());
+	}
+
+	@Override
+	public List<String> getAllImagesForVariant(String productId, String variantId) throws NoSuchAlgorithmException {
+		Product product = fetchProductById(productId);
+
+		Optional<Variant> matchedVariant = product.getVariants().stream()
+				.filter(variant -> variant.getVariantId().equals(variantId)).findFirst();
+
+		List<Image> images = matchedVariant.map(Variant::getImages).orElseGet(ArrayList::new);
+
+		return images.stream().map(image -> {
+			try {
+				return generatePresignedUrl(image.getFileName());
+			} catch (ImageUploadException e) {
+				logger.error("Failed to generate presigned URL for file: {}", image.getFileName(), e);
+				return null;
+			}
+		}).filter(Objects::nonNull).collect(Collectors.toList());
+	}
+
+	private String generatePresignedUrl(String fileName) throws ImageUploadException {
+		try {
+			return minioClient.getPresignedObjectUrl(GetPresignedObjectUrlArgs.builder().bucket(bucket).object(fileName)
+					.expiry(60 * 60).method(Method.GET).build());
+		} catch (InvalidKeyException | ErrorResponseException | InsufficientDataException | InternalException
+				| InvalidResponseException | NoSuchAlgorithmException | XmlParserException | ServerException
+				| IllegalArgumentException | IOException e) {
+			throw new ImageUploadException("Failed to generate presigned URL for " + fileName, e);
+		}
+	}
+
+	@Override
+	public String toggleVariantStatus(String productId, String variantId) throws NoSuchAlgorithmException {
+		Product product = fetchProductById(productId);
+		List<Variant> variants = product.getVariants();
+
+		for (int i = 0; i < variants.size(); i++) {
+			Variant variant = variants.get(i);
+			if (variant.getVariantId().equals(variantId)) {
+				ProductStatus oldStatus = variant.getStatus();
+				ProductStatus newStatus = oldStatus.equals(ProductStatus.ACTIVE) ? ProductStatus.INACTIVE
+						: ProductStatus.ACTIVE;
+				variant.setStatus(newStatus);
+				variants.set(i, variant);
+
+				product.setVariants(variants);
+				mongoOperations.save(product);
+
+				return "Variant status updated to: " + newStatus;
 			}
 		}
 
 		throw new NoSuchElementException("Variant with ID " + variantId + " not found in product " + productId);
 	}
 
-	public String generateAltText(Product product, Variant variant) {
-		StringBuilder altText = new StringBuilder("Image of ");
-		altText.append(product.getName());
+	@Override
+	public String deleteSpecificationForProduct(String productId, String key) throws NoSuchAlgorithmException {
+		Product product = fetchProductById(productId);
+		List<Specification> specifications = product.getSpecifications();
 
-		Map<String, String> specs = variant.getAttributes();
-
-		if (specs != null && !specs.isEmpty()) {
-			altText.append(" - ");
-			altText.append(specs.entrySet().stream().map(Entry::getValue).collect(Collectors.joining(", ")));
+		for (int i = 0; i < specifications.size(); i++) {
+			if (specifications.get(i).getKey().equalsIgnoreCase(key)) {
+				specifications.remove(i);
+				product.setSpecifications(specifications);
+				mongoOperations.save(product);
+				return "Specification with key '" + key + "' deleted successfully for product ID: " + productId;
+			}
 		}
 
-		return altText.toString();
+		throw new NoSuchElementException("Specification with key '" + key + "' not found in product ID: " + productId);
+	}
+
+	@Override
+	public String addSpecificationForProduct(String productId, Specification request) throws NoSuchAlgorithmException {
+		if (Objects.isNull(request)) {
+			throw new IllegalArgumentException("Specification request cannot be null");
+		}
+
+		if (Objects.isNull(request.getKey()) || request.getKey().isBlank()) {
+			throw new IllegalArgumentException("Specification key cannot be null or blank");
+		}
+
+		if (Objects.isNull(request.getValue()) || request.getValue().isBlank()) {
+			throw new IllegalArgumentException("Specification value cannot be null or blank");
+		}
+
+		Product product = fetchProductById(productId);
+		List<Specification> specifications = Optional.ofNullable(product.getSpecifications()).orElseGet(ArrayList::new);
+
+		Specification newSpecification = new Specification();
+		newSpecification.setKey(request.getKey());
+		newSpecification.setValue(request.getValue());
+
+		specifications.add(newSpecification);
+		product.setSpecifications(specifications);
+		mongoOperations.save(product);
+
+		return "Specification added successfully for product ID: " + productId;
+	}
+
+	@Override
+	public String addSpecificationForVariant(String productId, String variantId, Specification specification)
+			throws NoSuchAlgorithmException {
+
+		if (Objects.isNull(specification)) {
+			throw new IllegalArgumentException(
+					"Specification object must not be null. Please provide valid specification data.");
+		}
+
+		if (Objects.isNull(specification.getKey()) || specification.getKey().isBlank()) {
+			throw new IllegalArgumentException("Missing specification key: key must not be null or empty.");
+		}
+
+		if (Objects.isNull(specification.getValue()) || specification.getValue().isBlank()) {
+			throw new IllegalArgumentException("Missing specification value: value must not be null or empty.");
+		}
+
+		Product product = fetchProductById(productId);
+		List<Variant> variants = Optional.ofNullable(product.getVariants()).orElseGet(ArrayList::new);
+
+		for (int i = 0; i < variants.size(); i++) {
+			Variant variant = variants.get(i);
+			if (variant.getVariantId().equals(variantId)) {
+				List<Specification> specifications = Optional.ofNullable(variant.getSpecifications())
+						.orElseGet(ArrayList::new);
+
+				Specification newSpecification = new Specification();
+				newSpecification.setKey(specification.getKey());
+				newSpecification.setValue(specification.getValue());
+
+				specifications.add(newSpecification);
+				variant.setSpecifications(specifications);
+				variants.set(i, variant);
+				product.setVariants(variants);
+				mongoOperations.save(product);
+
+				return String.format("Specification added successfully for Variant (ID: %s).", variantId);
+			}
+		}
+
+		throw new NoSuchAlgorithmException(String.format(
+				"Variant (ID: %s) not found under Product (ID: %s). Please verify that the variant exists and is properly mapped in the catalog.",
+				variantId, productId));
 	}
 
 }

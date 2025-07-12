@@ -46,4 +46,11 @@ public class Inventory {
         public void setWarehouseLocation(String warehouseLocation) {
             this.warehouseLocation = warehouseLocation;
         }
+
+		@Override
+		public String toString() {
+			return "Inventory [stockQuantity=" + stockQuantity + ", inStock=" + inStock + ", reservedQuantity="
+					+ reservedQuantity + ", warehouseLocation=" + warehouseLocation + "]";
+		}
+        
     }
